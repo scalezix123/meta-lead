@@ -45,7 +45,7 @@ serve(async (req) => {
             // 2. Find the specific linked page and workspace
             const { data: pageRecord, error: pageError } = await supabase
               .from('facebook_pages')
-              .select('workspace_id, access_token, field_mapping')
+              .select('workspace_id, access_token, field_mapping, page_name')
               .eq('page_id', page_id)
               .eq('is_active', true)
               .single()
