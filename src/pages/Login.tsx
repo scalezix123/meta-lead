@@ -67,8 +67,8 @@ export default function Login() {
         toast.success("Welcome back!");
         navigate("/");
       }
-    } catch (error: Error | any) {
-      toast.error(error.message || "An unexpected error occurred");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }

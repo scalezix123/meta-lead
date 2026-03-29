@@ -151,7 +151,7 @@ export default function Leads() {
                 <TableRow className="bg-muted/30">
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden md:table-cell">Phone</TableHead>
-                  <TableHead className="hidden lg:table-cell">Source</TableHead>
+                  <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -179,8 +179,11 @@ export default function Leads() {
                       <TableCell className="hidden md:table-cell text-muted-foreground" onClick={() => navigate(`/leads/${lead.id}`)}>
                         {lead.phone || '—'}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs uppercase" onClick={() => navigate(`/leads/${lead.id}`)}>
-                        {lead.source}
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs" onClick={() => navigate(`/leads/${lead.id}`)}>
+                        <div className="flex flex-col">
+                          <span className="uppercase font-bold text-[9px] text-primary">{lead.source}</span>
+                          <span className="text-muted-foreground truncate max-w-[120px]">{lead.meta_data?.page_name || 'Generic'}</span>
+                        </div>
                       </TableCell>
                       <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
                         <LeadStatusBadge status={lead.status} />

@@ -42,39 +42,57 @@ serve(async (req) => {
               Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
             )
 
-            // 2. Find workspace by page_id
-            const { data: workspace, error: wsError } = await supabase
-              .from('workspaces')
-              .select('id, meta_access_token')
+            // 2. Find the specific linked page and workspace
+            const { data: pageRecord, error: pageError } = await supabase
+              .from('facebook_pages')
+              .select('workspace_id, access_token, field_mapping')
               .eq('page_id', page_id)
+              .eq('is_active', true)
               .single()
 
-            if (wsError || !workspace) {
-              console.error('Workspace not found for page:', page_id)
+            if (pageError || !pageRecord) {
+              console.error('Active linked page not found for ID:', page_id)
               continue
             }
 
             // 3. Fetch Lead Details from Meta Graph API
-            const metaUrl = `https://graph.facebook.com/v19.0/${leadgen_id}?access_token=${workspace.meta_access_token}`
+            const metaUrl = `https://graph.facebook.com/v19.0/${leadgen_id}?access_token=${pageRecord.access_token}`
             const leadResp = await fetch(metaUrl)
             const metaLeadData = await leadResp.json()
 
-            // 4. Map and Insert Lead into DB
-            // Assuming field_data contains: email, full_name, etc.
+            // 4. Map Fields based on Client Configuration
             const fieldMap: Record<string, any> = {}
             metaLeadData.field_data?.forEach((field: any) => {
               fieldMap[field.name] = field.values[0]
             })
 
+            // Apply custom mapping if defined
+            const mapping = pageRecord.field_mapping || {
+              full_name: 'full_name',
+              email: 'email',
+              phone: 'phone'
+            }
+
+            const getMappedValue = (targetKey: string) => {
+              const metaKey = mapping[targetKey] || targetKey
+              return fieldMap[metaKey]
+            }
+
             const { error: insertError } = await supabase
               .from('leads')
               .insert({
-                workspace_id: workspace.id,
-                full_name: fieldMap.full_name || fieldMap.first_name + ' ' + fieldMap.last_name || 'Prospect',
-                email: fieldMap.email,
-                phone: fieldMap.phone || fieldMap.phone_number,
+                workspace_id: pageRecord.workspace_id,
+                full_name: getMappedValue('full_name') || fieldMap.full_name || 'Prospect',
+                email: getMappedValue('email') || fieldMap.email,
+                phone: getMappedValue('phone') || fieldMap.phone || fieldMap.phone_number,
                 source: 'meta',
-                meta_data: { leadgen_id, form_id, raw_fields: fieldMap }
+                meta_data: { 
+                  leadgen_id, 
+                  form_id, 
+                  page_id, 
+                  page_name: pageRecord.page_name, 
+                  raw_fields: fieldMap 
+                }
               })
 
             if (insertError) {

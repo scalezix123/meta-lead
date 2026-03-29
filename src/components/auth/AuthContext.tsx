@@ -31,14 +31,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
+    // 1. Try to fetch existing profile
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
     
-    if (!error && data) {
-      setProfile(data);
+    // 2. If profile exists and has a workspace, we're good
+    if (!profileError && profileData?.workspace_id) {
+      setProfile(profileData);
+      return;
+    }
+
+    // 3. Self-healing: Create a workspace if missing
+    console.log("Profile or Workspace missing, self-healing started...");
+    
+    // Create a default workspace
+    const { data: wsData, error: wsError } = await supabase
+      .from('workspaces')
+      .insert({ 
+        name: "My Workspace",
+        slug: `workspace-${Math.random().toString(36).substring(7)}`
+      })
+      .select()
+      .single();
+
+    if (wsError) {
+      console.error("Self-healing: Failed to create workspace", wsError);
+      return;
+    }
+
+    // Update or Create the profile with the new workspace ID
+    const { data: newProfile, error: upsertError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: userId,
+        workspace_id: wsData.id,
+        full_name: user?.email?.split('@')[0] || "User"
+      })
+      .select()
+      .single();
+
+    if (upsertError) {
+      console.error("Self-healing: Failed to update profile", upsertError);
+    } else {
+      setProfile(newProfile);
     }
   };
 
