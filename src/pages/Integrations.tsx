@@ -35,6 +35,7 @@ export default function Integrations() {
   const [dbData, setDbData] = useState<Workspace | null>(null);
   const [foundPages, setFoundPages] = useState<FacebookPage[]>([]);
   const [linkedPages, setLinkedPages] = useState<Record<string, FacebookPage>>({});
+  const [syncingPageId, setSyncingPageId] = useState<string | null>(null);
 
   // Fetch workspace and linked pages
   useEffect(() => {
@@ -119,6 +120,68 @@ export default function Integrations() {
   };
 
   const isConnected = !!dbData?.meta_access_token;
+
+  const handleManualSync = async (page: FacebookPage) => {
+    if (!profile?.workspace_id) return;
+    setSyncingPageId(page.id);
+    
+    try {
+      // 1. Fetch Forms
+      const formsRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/leadgen_forms?access_token=${page.access_token}`);
+      const formsData = await formsRes.json();
+      
+      if (!formsData.data || formsData.data.length === 0) {
+        toast.info(`No lead forms found for ${page.name}`);
+        return;
+      }
+
+      let totalImported = 0;
+
+      // 2. Fetch Leads per Form
+      for (const form of formsData.data) {
+        const leadsRes = await fetch(`https://graph.facebook.com/v19.0/${form.id}/leads?access_token=${page.access_token}`);
+        const leadsData = await leadsRes.json();
+
+        if (leadsData.data && leadsData.data.length > 0) {
+          const mapping = (linkedPages[page.id]?.field_mapping as Record<string, string>) || { 
+            full_name: 'full_name', 
+            email: 'email', 
+            phone: 'phone' 
+          };
+
+          const leadsToUpsert = leadsData.data.map((lead: any) => {
+            const getFieldValue = (name: string) => lead.field_data.find((f: any) => f.name === name)?.values?.[0] || "";
+            
+            return {
+              workspace_id: profile.workspace_id,
+              full_name: getFieldValue(mapping.full_name),
+              email: getFieldValue(mapping.email),
+              phone: getFieldValue(mapping.phone),
+              status: 'new',
+              source: 'facebook',
+              facebook_lead_id: lead.id,
+              meta_data: lead,
+              created_at: lead.created_time
+            };
+          });
+
+          // 3. Upsert into Supabase
+          const { error: upsertError } = await supabase
+            .from('leads')
+            .upsert(leadsToUpsert, { onConflict: 'facebook_lead_id' });
+
+          if (!upsertError) totalImported += leadsToUpsert.length;
+        }
+      }
+
+      toast.success(`Synced ${totalImported} leads from ${page.name}!`);
+    } catch (err) {
+      console.error("Manual Sync Error:", err);
+      toast.error("Failed to sync leads. Check console for details.");
+    } finally {
+      setSyncingPageId(null);
+    }
+  };
 
   const handleSaveSettings = async () => {
     if (!profile?.workspace_id) return;
@@ -393,6 +456,20 @@ export default function Integrations() {
                           Map Fields
                         </Button>
                       )}
+                      
+                      {linkedPages[page.id] && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-8 text-[10px] px-2 uppercase font-bold tracking-wider"
+                          onClick={() => handleManualSync(page)}
+                          disabled={syncingPageId === page.id}
+                        >
+                          {syncingPageId === page.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                          Sync Leads
+                        </Button>
+                      )}
+
                       <Button 
                         size="sm" 
                         variant={linkedPages[page.id] ? "destructive" : "default"}
