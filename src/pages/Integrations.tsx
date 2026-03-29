@@ -38,37 +38,55 @@ export default function Integrations() {
 
   // Fetch workspace and linked pages
   useEffect(() => {
+    if (!profile?.workspace_id) {
+      setFetchLoading(false);
+      return;
+    }
+
     async function loadData() {
-      if (!profile?.workspace_id) return;
-      
       setFetchLoading(true);
       try {
+        console.log("Loading Integration Data for workspace:", profile.workspace_id);
+        
         // 1. Fetch Workspace
-        const { data: workspace } = await supabase
+        const { data: workspace, error: wError } = await supabase
           .from('workspaces')
           .select('*')
           .eq('id', profile.workspace_id)
           .single();
+
+        if (wError) throw wError;
 
         if (workspace) {
           setDbData(workspace as Workspace);
           setAppId(workspace.meta_app_id || "");
           
           if (workspace.meta_access_token) {
+            console.log("Auto-fetching pages using saved token...");
             fetchPagesFromMeta(workspace.meta_access_token);
           }
         }
 
         // 2. Fetch Linked Pages
-        const { data: pages } = await supabase
+        const { data: pages, error: pError } = await supabase
           .from('facebook_pages')
-          .select('*, leads:leads(count)')
+          .select('*')
           .eq('workspace_id', profile.workspace_id);
 
+        if (pError) throw pError;
+
         if (pages) {
+          console.log("Loaded linked pages from DB:", pages.length);
           const mapped = pages.reduce((acc: Record<string, FacebookPage>, p) => ({ 
             ...acc, 
-            [p.page_id]: { ...(p as unknown as FacebookPage), total_leads: (p as any).leads?.[0]?.count || 0 } 
+            [p.page_id]: { 
+              id: p.page_id,
+              name: p.page_name,
+              access_token: p.access_token,
+              is_active: p.is_active,
+              field_mapping: p.field_mapping,
+              total_leads: p.total_leads || 0
+            } 
           }), {});
           setLinkedPages(mapped);
         }
