@@ -156,12 +156,13 @@ export default function Integrations() {
       // Link
       const { error } = await supabase
         .from('facebook_pages')
-        .insert({
+        .upsert({
           workspace_id: profile.workspace_id,
           page_id: page.id,
           page_name: page.name,
-          access_token: page.access_token
-        });
+          access_token: page.access_token,
+          is_active: true
+        }, { onConflict: 'workspace_id,page_id' });
       
       if (!error) {
         setLinkedPages({ ...linkedPages, [page.id]: page });
