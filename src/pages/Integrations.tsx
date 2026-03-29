@@ -220,7 +220,14 @@ export default function Integrations() {
     const isCurrentlyLinked = !!linkedPages[page.id];
 
     if (isCurrentlyLinked) {
-      // Unlink
+      // Unlink from Facebook first
+      try {
+        await fetch(`https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?access_token=${page.access_token}`, { method: 'DELETE' });
+      } catch (err) {
+        console.error("Failed to unsubscribe app from page:", err);
+      }
+
+      // Unlink in DB
       const { error } = await supabase
         .from('facebook_pages')
         .delete()
@@ -234,7 +241,21 @@ export default function Integrations() {
         toast.info(`Unlinked ${page.name}`);
       }
     } else {
-      // Link
+      // Subscribe app to Page leads on Facebook
+      try {
+        const subRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?subscribed_fields=leadgen&access_token=${page.access_token}`, { 
+          method: 'POST' 
+        });
+        const subData = await subRes.json();
+        if (!subData.success) {
+          console.error("Facebook Subscription Failed:", subData);
+          toast.warning("Saved in DB, but Facebook subscription failed. You may need to manually associate the app.");
+        }
+      } catch (err) {
+        console.error("Failed to subscribe app to page:", err);
+      }
+
+      // Link in DB
       const { error } = await supabase
         .from('facebook_pages')
         .upsert({
@@ -249,7 +270,7 @@ export default function Integrations() {
         setLinkedPages({ ...linkedPages, [page.id]: page });
         toast.success(`Connected ${page.name}! Ready to sync leads.`);
       } else {
-        toast.error("Failed to link page: " + error.message);
+        toast.error("Failed to link page in database: " + error.message);
       }
     }
   };
