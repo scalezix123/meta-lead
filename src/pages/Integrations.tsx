@@ -209,7 +209,7 @@ export default function Integrations() {
 
     setLoading(true);
     const redirectUri = window.location.origin + "/integrations";
-    const scope = "ads_management,pages_show_list,leads_retrieval,pages_read_engagement,pages_manage_ads";
+    const scope = "ads_management,pages_show_list,leads_retrieval,pages_read_engagement,pages_manage_ads,pages_manage_metadata";
     const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${finalAppId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=token`;
     window.location.href = authUrl;
   };
