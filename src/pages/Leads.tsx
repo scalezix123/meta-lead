@@ -56,12 +56,20 @@ export default function Leads() {
                             if (leadsData.data && leadsData.data.length > 0) {
                                 const mapping = page.field_mapping || { full_name: 'full_name', email: 'email', phone: 'phone' };
                                 const leadsToUpsert = leadsData.data.map((lead: any) => {
-                                    const getFieldValue = (name: string) => lead.field_data.find((f: any) => f.name === name)?.values?.[0] || "";
+                                    const getFieldValue = (name: string, fallbacks: string[] = []) => {
+                                        let val = lead.field_data.find((f: any) => f.name === name || f.name.toLowerCase() === name.toLowerCase())?.values?.[0];
+                                        if (val) return val;
+                                        for (const fb of fallbacks) {
+                                            val = lead.field_data.find((f: any) => f.name === fb || f.name.toLowerCase() === fb.toLowerCase())?.values?.[0];
+                                            if (val) return val;
+                                        }
+                                        return "";
+                                    };
                                     return {
                                         workspace_id: profile.workspace_id,
-                                        full_name: getFieldValue(mapping.full_name),
-                                        email: getFieldValue(mapping.email),
-                                        phone: getFieldValue(mapping.phone),
+                                        full_name: getFieldValue(mapping.full_name, ['full_name', 'name', 'first_name', 'fullname']),
+                                        email: getFieldValue(mapping.email, ['email', 'email_address']),
+                                        phone: getFieldValue(mapping.phone, ['phone', 'phone_number', 'work_phone_number', 'phonenumber']),
                                         status: 'new',
                                         source: 'facebook',
                                         facebook_lead_id: lead.id,
