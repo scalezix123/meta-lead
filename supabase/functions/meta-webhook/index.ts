@@ -73,19 +73,25 @@ serve(async (req) => {
               phone: 'phone'
             }
 
-            const getMappedValue = (targetKey: string) => {
-              const metaKey = mapping[targetKey] || targetKey
-              return fieldMap[metaKey]
+            const getFieldValue = (name: string, fallbacks: string[] = []) => {
+              const metaKey = mapping[name] || name;
+              if (fieldMap[metaKey]) return fieldMap[metaKey]
+              
+              for (const fb of fallbacks) {
+                  if (fieldMap[fb]) return fieldMap[fb]
+              }
+              return ""
             }
 
             const { error: insertError } = await supabase
               .from('leads')
-              .insert({
+              .upsert({
                 workspace_id: pageRecord.workspace_id,
-                full_name: getMappedValue('full_name') || fieldMap.full_name || 'Prospect',
-                email: getMappedValue('email') || fieldMap.email,
-                phone: getMappedValue('phone') || fieldMap.phone || fieldMap.phone_number,
+                full_name: getFieldValue('full_name', ['name', 'first_name', 'fullname']) || 'Prospect',
+                email: getFieldValue('email', ['email_address']),
+                phone: getFieldValue('phone', ['phone_number', 'work_phone_number', 'phonenumber']),
                 source: 'meta',
+                facebook_lead_id: leadgen_id,
                 meta_data: { 
                   leadgen_id, 
                   form_id, 

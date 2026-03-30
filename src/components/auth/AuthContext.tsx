@@ -6,6 +6,7 @@ interface Profile {
   id: string;
   full_name: string | null;
   workspace_id: string | null;
+  role: string;
 }
 
 interface AuthContextType {
@@ -68,7 +69,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .upsert({
         id: userId,
         workspace_id: wsData.id,
-        full_name: user?.email?.split('@')[0] || "User"
+        full_name: user?.email?.split('@')[0] || "User",
+        role: 'admin'
       })
       .select()
       .single();
