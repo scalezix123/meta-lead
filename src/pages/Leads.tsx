@@ -6,7 +6,7 @@ import { CreateLeadDialog } from "@/components/CreateLeadDialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Loader2, Download, MessageCircle } from "lucide-react";
+import { Plus, Search, Loader2, Download, MessageCircle, RefreshCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -18,9 +18,70 @@ export default function Leads() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [isSyncingMeta, setIsSyncingMeta] = useState(false);
   const navigate = useNavigate();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+
+  const handleSyncAllMetaLeads = async () => {
+    if (!profile?.workspace_id) return;
+    setIsSyncingMeta(true);
+    let overallAdded = 0;
+    
+    try {
+        const { data: pages } = await supabase.from('facebook_pages').select('*').eq('workspace_id', profile.workspace_id);
+        if (!pages || pages.length === 0) {
+            toast.info("No Facebook pages connected. Go to Integrations to connect.");
+            setIsSyncingMeta(false);
+            return;
+        }
+
+        for (const page of pages) {
+            const formsRes = await fetch(`https://graph.facebook.com/v19.0/${page.page_id}/leadgen_forms?access_token=${page.access_token}`);
+            const formsData = await formsRes.json();
+            
+            if (!formsData.data) continue;
+
+            for (const form of formsData.data) {
+                let url = `https://graph.facebook.com/v19.0/${form.id}/leads?access_token=${page.access_token}&limit=100`;
+                let hasNextPage = true;
+
+                while (hasNextPage) {
+                    const leadsRes = await fetch(url);
+                    const leadsData = await leadsRes.json();
+
+                    if (leadsData.data && leadsData.data.length > 0) {
+                        const mapping = page.field_mapping || { full_name: 'full_name', email: 'email', phone: 'phone' };
+                        const leadsToUpsert = leadsData.data.map((lead: any) => {
+                            const getFieldValue = (name: string) => lead.field_data.find((f: any) => f.name === name)?.values?.[0] || "";
+                            return {
+                                workspace_id: profile.workspace_id,
+                                full_name: getFieldValue(mapping.full_name),
+                                email: getFieldValue(mapping.email),
+                                phone: getFieldValue(mapping.phone),
+                                status: 'new',
+                                source: 'facebook',
+                                facebook_lead_id: lead.id,
+                                meta_data: lead,
+                                created_at: lead.created_time
+                            };
+                        });
+                        const { error } = await supabase.from('leads').upsert(leadsToUpsert, { onConflict: 'facebook_lead_id' });
+                        if (!error) overallAdded += leadsToUpsert.length;
+                    }
+                    if (leadsData.paging && leadsData.paging.next) url = leadsData.paging.next;
+                    else hasNextPage = false;
+                }
+            }
+        }
+        queryClient.invalidateQueries({ queryKey: ['leads'] });
+        toast.success(`Successfully synced leads from Meta`);
+    } catch (err) {
+        toast.error("Error syncing leads");
+    } finally {
+        setIsSyncingMeta(false);
+    }
+  };
 
   const updateLead = useMutation({
     mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
@@ -118,6 +179,10 @@ export default function Leads() {
             <p className="text-sm text-muted-foreground mt-1">{leads.length} total leads found</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleSyncAllMetaLeads} disabled={isSyncingMeta}>
+              {isSyncingMeta ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
+              {isSyncingMeta ? 'Syncing...' : 'Sync Meta Leads'}
+            </Button>
             <Button variant="outline" size="sm" onClick={exportLeads} disabled={filtered.length === 0}>
               <Download className="h-4 w-4 mr-2" /> Export CSV
             </Button>
