@@ -12,6 +12,7 @@ import { Loader2, User } from "lucide-react";
 export default function Settings() {
   const { profile, user } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || "");
+  const [defaultView, setDefaultView] = useState(localStorage.getItem('defaultLeadView') || 'table');
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,6 +25,7 @@ export default function Settings() {
     if (!user?.id) return;
     
     setIsSaving(true);
+    localStorage.setItem('defaultLeadView', defaultView);
     const { error } = await supabase
       .from('profiles')
       .update({ full_name: fullName })
@@ -111,6 +113,19 @@ export default function Settings() {
                     placeholder="Enter your full name" 
                     required 
                   />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="defaultView">Default Lead View</Label>
+                  <select 
+                    id="defaultView" 
+                    value={defaultView}
+                    onChange={(e) => setDefaultView(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="table">Table View</option>
+                    <option value="kanban">Kanban Board</option>
+                  </select>
                 </div>
               </CardContent>
               <CardFooter className="border-t px-6 py-4">

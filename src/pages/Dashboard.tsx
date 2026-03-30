@@ -1,11 +1,11 @@
-import { Target, Users, TrendingUp, CalendarCheck, Loader2, BarChart3 } from "lucide-react";
+import { Target, Users, TrendingUp, CalendarCheck, Loader2, BarChart3, Trophy, PieChart } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { LeadStatusBadge } from "@/components/LeadStatusBadge";
 import { AppLayout } from "@/components/AppLayout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -46,7 +46,7 @@ export default function Dashboard() {
       if (!profile?.workspace_id) return [];
       const { data, error } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, full_name')
         .eq('workspace_id', profile.workspace_id);
       if (error) throw error;
       return data;
@@ -59,7 +59,7 @@ export default function Dashboard() {
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
   const recentLeads = leads.slice(0, 5);
 
-  // Chart Data Preparation (last 7 days)
+  // 1. Chart Data Preparation (last 7 days Volume)
   const chartData = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
@@ -70,6 +70,43 @@ export default function Dashboard() {
       leads: count
     };
   });
+
+  // 2. Conversion Funnel Setup
+  const funnelStages = ['new', 'contacted', 'qualified', 'won', 'lost'];
+  const funnelData = funnelStages.map(stage => ({
+    name: stage.charAt(0).toUpperCase() + stage.slice(1),
+    Count: leads.filter(l => l.status === stage).length
+  }));
+
+  // 3. Campaign ROI & Top Closers
+  const campaignMap: Record<string, number> = {};
+  const closerMap: Record<string, number> = {};
+  
+  leads.forEach(l => {
+    if (l.status === 'won') {
+      const camp = l.meta_data?.campaign_name || 'Generic / Standard';
+      campaignMap[camp] = (campaignMap[camp] || 0) + 1;
+      
+      if (l.assigned_to) {
+        closerMap[l.assigned_to] = (closerMap[l.assigned_to] || 0) + 1;
+      }
+    }
+  });
+
+  const topCampaigns = Object.entries(campaignMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const topClosers = Object.entries(closerMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, wonCount]) => {
+      const member = members.find(m => m.id === id);
+      return {
+        name: member?.full_name || 'Unknown TL',
+        won: wonCount
+      };
+    });
 
   if (leadsLoading || tasksLoading || membersLoading) {
     return (
@@ -85,8 +122,8 @@ export default function Dashboard() {
     <AppLayout>
       <div className="animate-slide-in">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground capitalize">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Welcome back, {userName}. Here's your lead overview.</p>
+          <h1 className="text-2xl font-bold text-foreground capitalize">Analytics Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Welcome back, {userName}. Here's your revenue and workflow overview.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -98,66 +135,62 @@ export default function Dashboard() {
           />
           <StatCard title="Leads Today" value={todayLeads.length} icon={TrendingUp} />
           <StatCard title="Team Members" value={members.length} icon={Users} />
-          <StatCard title="Pending Tasks" value={pendingTasks.length} icon={CalendarCheck} />
+          <StatCard title="Total Won!" value={leads.filter(l => l.status === 'won').length} icon={Trophy} />
         </div>
 
-        {/* Analytics Section */}
-        <div className="bg-card rounded-2xl border p-6 mb-8 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-bold text-card-foreground">Lead Volume</h2>
-          </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#64748b' }} 
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#64748b' }} 
-                />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="leads" 
-                  stroke="#3b82f6" 
-                  strokeWidth={2}
-                  fillOpacity={1} 
-                  fill="url(#colorLeads)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+        {/* Top Analytics Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div className="bg-card rounded-2xl border p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-6">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-bold text-card-foreground">Conversion Funnel</h2>
+            </div>
+            <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={funnelData} layout="vertical" margin={{ top: 0, right: 0, left: 30, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                    <Bar dataKey="Count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+            </div>
+            </div>
+
+            <div className="bg-card rounded-2xl border p-6 shadow-sm flex flex-col">
+              <div className="flex items-center gap-2 mb-6">
+                  <PieChart className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-bold text-card-foreground">Campaign ROI (Won Deals)</h2>
+              </div>
+              <div className="flex-1 space-y-4">
+                  {topCampaigns.length === 0 ? (
+                      <p className="text-muted-foreground italic text-sm">No won deals attributed to campaigns yet.</p>
+                  ) : topCampaigns.map(([campaign, wonDeals]) => (
+                      <div key={campaign} className="flex justify-between items-center bg-muted/30 p-3 rounded-lg border">
+                          <span className="text-sm font-semibold uppercase">{campaign}</span>
+                          <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-bold">{wonDeals} deals</span>
+                      </div>
+                  ))}
+              </div>
+            </div>
         </div>
 
+        {/* Bottom Lists Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-card rounded-2xl border p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-card-foreground mb-4">Recent Leads</h2>
+            <h2 className="text-base font-semibold text-card-foreground mb-4">Top Closers Leaderboard</h2>
             <div className="space-y-3">
-              {recentLeads.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4">No recent leads found.</p>
+              {topClosers.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No deals closed by team leads yet.</p>
               ) : (
-                recentLeads.map(lead => (
-                  <div key={lead.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-card-foreground">{lead.full_name || 'No Name'}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{lead.source}</p>
+                topClosers.map((closer, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b last:border-0 hover:bg-muted/10">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center font-bold text-primary text-xs">#{i+1}</div>
+                      <p className="text-sm font-semibold text-card-foreground">{closer.name}</p>
                     </div>
-                    <LeadStatusBadge status={lead.status} />
+                    <span className="font-bold text-green-600 bg-green-50 px-2 py-1 rounded text-xs">{closer.won} Won</span>
                   </div>
                 ))
               )}
@@ -165,20 +198,18 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-card rounded-2xl border p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-card-foreground mb-4">Upcoming Tasks</h2>
+            <h2 className="text-base font-semibold text-card-foreground mb-4">Recent Leads Drop</h2>
             <div className="space-y-3">
-              {pendingTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4">No pending tasks.</p>
+              {recentLeads.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No recent leads found.</p>
               ) : (
-                pendingTasks.slice(0, 5).map(task => (
-                  <div key={task.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                recentLeads.map(lead => (
+                  <div key={lead.id} className="flex items-center justify-between py-2 border-b last:border-0 hover:bg-muted/10 cursor-pointer">
                     <div>
-                      <p className="text-sm font-medium text-card-foreground">{task.title}</p>
-                      <p className="text-xs text-muted-foreground uppercase">{task.status}</p>
+                      <p className="text-sm font-medium text-card-foreground">{lead.full_name || 'No Name'}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{lead.source}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'}
-                    </span>
+                    <LeadStatusBadge status={lead.status} />
                   </div>
                 ))
               )}

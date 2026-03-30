@@ -6,7 +6,7 @@ import { CreateLeadDialog } from "@/components/CreateLeadDialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Loader2, Download, MessageCircle, RefreshCcw } from "lucide-react";
+import { Plus, Search, Loader2, Download, MessageCircle, RefreshCcw , LayoutGrid, ShieldAlert} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -165,6 +165,12 @@ export default function Leads() {
     return matchesSearch && matchesStatus && matchesAssignee;
   });
 
+  const isRotten = (createdAt: string, status: string) => {
+    if (status !== 'new') return false;
+    const hours = (new Date().getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60);
+    return hours > 4;
+  };
+
   const exportLeads = () => {
     if (filtered.length === 0) return;
     const headers = ["Name", "Email", "Phone", "Status", "Source", "Date"];
@@ -186,6 +192,28 @@ export default function Leads() {
     toast.success("CSV Export started");
   };
 
+  const handleRottenReassign = async () => {
+    const rottenLeads = filtered.filter(l => isRotten(l.created_at, l.status));
+    if (rottenLeads.length === 0) {
+        toast.info("No rotten leads to process!");
+        return;
+    }
+    const eligibleMembers = members.filter(m => m.id !== profile?.id);
+    if (eligibleMembers.length === 0) {
+        toast.error("No other team members available to reassign to!");
+        return;
+    }
+    
+    toast.loading(`Processing ${rottenLeads.length} neglected leads...`);
+    for (const lead of rottenLeads) {
+        const randomMember = eligibleMembers[Math.floor(Math.random() * eligibleMembers.length)];
+        await supabase.from('leads').update({ assigned_to: randomMember.id }).eq('id', lead.id);
+    }
+    queryClient.invalidateQueries({ queryKey: ['leads'] });
+    toast.dismiss();
+    toast.success(`Successfully reassigned ${rottenLeads.length} rotten leads away from neglectful owners!`);
+  };
+
   const openWhatsApp = (phone: string) => {
     let cleanPhone = phone.replace(/[^\d]/g, '');
     // If it's a 10-digit number, prepend India country code (91) as a baseline
@@ -202,6 +230,14 @@ export default function Leads() {
             <p className="text-sm text-muted-foreground mt-1">{leads.length} total leads found</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/pipeline')}>
+              <LayoutGrid className="h-4 w-4 mr-2" /> Board View
+            </Button>
+            {profile?.role === 'admin' && (
+              <Button variant="destructive" size="sm" onClick={handleRottenReassign}>
+                <ShieldAlert className="h-4 w-4 mr-2" /> Reassign Rotten
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleSyncAllMetaLeads} disabled={isSyncingMeta}>
               {isSyncingMeta ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
               {isSyncingMeta ? 'Syncing...' : 'Sync Meta Leads'}
@@ -281,7 +317,7 @@ export default function Leads() {
                   filtered.map(lead => (
                     <TableRow
                       key={lead.id}
-                      className="cursor-pointer hover:bg-muted/50 group"
+                      className={`cursor-pointer group ${isRotten(lead.created_at, lead.status) ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' : 'hover:bg-muted/50'}`}
                     >
                       <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
                         <div>
