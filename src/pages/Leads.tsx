@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { LeadStatusBadge, stageLabels } from "@/components/LeadStatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { CreateLeadDialog } from "@/components/CreateLeadDialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Loader2, Download, MessageCircle } from "lucide-react";
+import { Plus, Search, Loader2, Download, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,26 @@ export default function Leads() {
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const queryClient = useQueryClient();
+
+  const updateLead = useMutation({
+    mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
+      const { error } = await supabase.from('leads').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      toast.success("Lead updated");
+    }
+  });
+
+  const handleAddRemark = (e: React.MouseEvent, lead: any) => {
+    e.stopPropagation();
+    const remark = prompt("Add/Edit remark:", lead.remark || "");
+    if (remark !== null) {
+      updateLead.mutate({ id: lead.id, updates: { remark } });
+    }
+  };
 
   const { data: leads = [], isLoading: leadsLoading } = useQuery({
     queryKey: ['leads', profile?.workspace_id],
@@ -53,7 +74,8 @@ export default function Leads() {
     const matchesSearch = 
       (lead.full_name?.toLowerCase() || "").includes(search.toLowerCase()) ||
       (lead.email?.toLowerCase() || "").includes(search.toLowerCase()) ||
-      (lead.phone || "").includes(search);
+      (lead.phone || "").includes(search) ||
+      (lead.tags || []).some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()));
     const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
     const matchesAssignee = assigneeFilter === "all" || lead.assigned_to === assigneeFilter;
     return matchesSearch && matchesStatus && matchesAssignee;
@@ -152,6 +174,9 @@ export default function Leads() {
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden md:table-cell">Phone</TableHead>
                   <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
+                  <TableHead>Tags</TableHead>
+                  <TableHead>TL</TableHead>
+                  <TableHead>Remark</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -183,6 +208,42 @@ export default function Leads() {
                         <div className="flex flex-col">
                           <span className="uppercase font-bold text-[9px] text-primary">{lead.source}</span>
                           <span className="text-muted-foreground truncate max-w-[120px]">{lead.meta_data?.page_name || 'Generic'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
+                        <div className="flex flex-wrap gap-1 max-w-[150px]">
+                          {(lead.tags || []).map((tag: string) => (
+                            <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/5 text-primary border-primary/20 capitalize whitespace-nowrap">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {(!lead.tags || lead.tags.length === 0) && <span className="text-[10px] text-muted-foreground italic">No tags</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Select 
+                          value={lead.assigned_to || "unassigned"} 
+                          onValueChange={(val) => updateLead.mutate({ id: lead.id, updates: { assigned_to: val === "unassigned" ? null : val } })}
+                        >
+                          <SelectTrigger className="h-8 border-none p-0 bg-transparent text-xs w-[120px] focus:ring-0">
+                            <SelectValue placeholder="Unassigned" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {members.map(member => (
+                              <SelectItem key={member.id} value={member.id}>{member.full_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={lead.remark}>
+                            {lead.remark || "No remark"}
+                          </span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-primary hover:bg-primary/10 shrink-0" onClick={(e) => handleAddRemark(e, lead)}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
                         </div>
                       </TableCell>
                       <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>

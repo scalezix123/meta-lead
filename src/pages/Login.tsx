@@ -13,6 +13,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
+  const [isResetMode, setIsResetMode] = useState(false);
   const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -30,30 +31,53 @@ export default function Login() {
         if (authError) throw authError;
 
         if (authData.user) {
-          // 1. Create Workspace
-          const { data: wsData, error: wsError } = await supabase
-            .from('workspaces')
-            .insert({ 
-              name: workspaceName,
-              slug: workspaceName.toLowerCase().replace(/ /g, '-')
-            })
-            .select()
-            .single();
+          // 1. Check for invitations
+          const { data: invite, error: inviteError } = await supabase
+            .from('workspace_invites')
+            .select('*')
+            .eq('email', email)
+            .is('accepted_at', null)
+            .maybeSingle();
 
-          if (wsError) throw wsError;
+          let targetWorkspaceId;
+
+          if (invite) {
+            // Join existing workspace
+            targetWorkspaceId = invite.workspace_id;
+            
+            // Mark invite as accepted
+            await supabase
+              .from('workspace_invites')
+              .update({ accepted_at: new Date().toISOString() })
+              .eq('id', invite.id);
+          } else {
+            // Create New Workspace
+            const { data: wsData, error: wsError } = await supabase
+              .from('workspaces')
+              .insert({ 
+                name: workspaceName || (email.split('@')[0] + "'s Workspace"),
+                slug: (workspaceName || email.split('@')[0]).toLowerCase().replace(/ /g, '-')
+              })
+              .select()
+              .single();
+
+            if (wsError) throw wsError;
+            targetWorkspaceId = wsData.id;
+          }
 
           // 2. Create Profile
           const { error: profError } = await supabase
             .from('profiles')
             .insert({
               id: authData.user.id,
-              workspace_id: wsData.id,
-              full_name: email.split('@')[0] // Fallback
+              workspace_id: targetWorkspaceId,
+              full_name: email.split('@')[0],
+              role: invite ? invite.role : 'admin'
             });
 
           if (profError) throw profError;
 
-          toast.success("Account created successfully!");
+          toast.success(invite ? "Joined workspace successfully!" : "Workspace created successfully!");
           navigate("/");
         }
       } else {
@@ -74,6 +98,25 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error("Please enter your email first");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/settings`,
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Password reset link sent to your email");
+      setIsResetMode(false);
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
@@ -86,66 +129,105 @@ export default function Login() {
 
         <div className="bg-card rounded-lg border p-6">
           <h2 className="text-lg font-semibold text-card-foreground mb-1">
-            {isSignup ? 'Create your workspace' : 'Welcome back'}
+            {isResetMode ? 'Reset your password' : isSignup ? 'Create your workspace' : 'Welcome back'}
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            {isSignup ? 'Start managing your Meta leads today' : 'Sign in to your CRM'}
+            {isResetMode ? 'We will send a reset link to your email' : isSignup ? 'Start managing your Meta leads today' : 'Sign in to your CRM'}
           </p>
 
-          <form onSubmit={handleAuth} className="space-y-4">
-            {isSignup && (
+          {!isResetMode ? (
+            <form onSubmit={handleAuth} className="space-y-4">
+              {isSignup && (
+                <div>
+                  <Label htmlFor="workspace" className="text-sm">Workspace Name</Label>
+                  <Input 
+                    id="workspace" 
+                    placeholder="My Company" 
+                    className="mt-1.5" 
+                    value={workspaceName}
+                    onChange={(e) => setWorkspaceName(e.target.value)}
+                    required={isSignup}
+                  />
+                </div>
+              )}
               <div>
-                <Label htmlFor="workspace" className="text-sm">Workspace Name</Label>
+                <Label htmlFor="email" className="text-sm">Email</Label>
                 <Input 
-                  id="workspace" 
-                  placeholder="My Company" 
+                  id="email" 
+                  type="email" 
+                  placeholder="you@company.com" 
                   className="mt-1.5" 
-                  value={workspaceName}
-                  onChange={(e) => setWorkspaceName(e.target.value)}
-                  required={isSignup}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
               </div>
-            )}
-            <div>
-              <Label htmlFor="email" className="text-sm">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="you@company.com" 
-                className="mt-1.5" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="password" className="text-sm">Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••" 
-                className="mt-1.5" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSignup ? 'Create Workspace' : 'Sign In'}
-            </Button>
-          </form>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-sm">Password</Label>
+                  <button 
+                    type="button"
+                    onClick={() => setIsResetMode(true)}
+                    className="text-[10px] text-primary hover:underline font-medium"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  placeholder="••••••••" 
+                  className="mt-1.5" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isSignup ? 'Create Workspace' : 'Sign In'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <Label htmlFor="email" className="text-sm">Email</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="you@company.com" 
+                  className="mt-1.5" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Send Reset Link
+              </Button>
+              <button
+                type="button"
+                onClick={() => setIsResetMode(false)}
+                className="w-full text-xs text-muted-foreground hover:text-foreground text-center"
+              >
+                Back to Login
+              </button>
+            </form>
+          )}
 
-          <p className="text-sm text-muted-foreground mt-4 text-center">
-            {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button
-              onClick={() => setIsSignup(!isSignup)}
-              className="text-primary font-medium hover:underline"
-              disabled={loading}
-            >
-              {isSignup ? 'Sign in' : 'Sign up'}
-            </button>
-          </p>
+          {!isResetMode && (
+            <p className="text-sm text-muted-foreground mt-4 text-center">
+              {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
+              <button
+                onClick={() => setIsSignup(!isSignup)}
+                className="text-primary font-medium hover:underline"
+                disabled={loading}
+              >
+                {isSignup ? 'Sign in' : 'Sign up'}
+              </button>
+            </p>
+          )}
         </div>
       </div>
     </div>

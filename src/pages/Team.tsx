@@ -1,17 +1,23 @@
 import { AppLayout } from "@/components/AppLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Loader2, Copy, Check } from "lucide-react";
+import { Users, UserPlus, Check, Copy, Loader2, Mail } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Team() {
   const { profile } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
+  const [isInviting, setIsInviting] = useState(false);
 
   const { data: workspace } = useQuery({
     queryKey: ['workspace', profile?.workspace_id],
@@ -42,6 +48,21 @@ export default function Team() {
     },
     enabled: !!profile?.workspace_id,
   });
+  
+  const { data: pendingInvites = [] } = useQuery({
+    queryKey: ['invites', profile?.workspace_id],
+    queryFn: async () => {
+      if (!profile?.workspace_id) return [];
+      const { data, error } = await supabase
+        .from('workspace_invites')
+        .select('*')
+        .eq('workspace_id', profile.workspace_id)
+        .is('accepted_at', null);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.workspace_id,
+  });
 
   const copyToClipboard = () => {
     if (!profile?.workspace_id) return;
@@ -49,6 +70,29 @@ export default function Team() {
     setCopied(true);
     toast.success("Workspace ID copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile?.workspace_id || !inviteEmail) return;
+    
+    setIsInviting(true);
+    const { error } = await supabase
+      .from('workspace_invites')
+      .insert({
+        workspace_id: profile.workspace_id,
+        email: inviteEmail,
+        role: inviteRole,
+        invited_by: profile.id
+      });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Invite sent to ${inviteEmail}`);
+      setInviteEmail("");
+    }
+    setIsInviting(false);
   };
 
   if (isLoading) {
@@ -94,6 +138,46 @@ export default function Team() {
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or invite via email</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleInvite} className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email" className="text-xs">Email Address</Label>
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="teammate@company.com" 
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    required
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="role" className="text-xs">Role</Label>
+                  <Select value={inviteRole} onValueChange={setInviteRole}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="member">Member</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="w-full h-9" disabled={isInviting}>
+                  {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send Invitation
+                </Button>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
@@ -135,6 +219,35 @@ export default function Team() {
             </Dialog>
           </div>
         </div>
+
+        {/* Pending Invites Section */}
+        {pendingInvites.length > 0 && (
+          <div className="mt-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Pending Invitations</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pendingInvites.map((invite: any) => (
+                <div key={invite.id} className="bg-muted/30 border border-dashed rounded-xl p-4 relative overflow-hidden group">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-muted border flex items-center justify-center">
+                      <Mail className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm text-foreground">{invite.email}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+                        Role: {invite.role}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-500/10 text-orange-600 border border-orange-500/20">
+                      WAITING FOR SIGNUP
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );

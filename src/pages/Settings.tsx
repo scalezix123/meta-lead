@@ -12,7 +12,12 @@ import { Loader2, User } from "lucide-react";
 export default function Settings() {
   const { profile, user } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || "");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +37,38 @@ export default function Settings() {
       // For now, we'll suggest a refresh or rely on the next mount
     }
     setIsSaving(false);
+  };
+
+  const handleUpdateEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail) return;
+    setIsUpdatingEmail(true);
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Verification email sent to " + newEmail);
+      setNewEmail("");
+    }
+    setIsUpdatingEmail(false);
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setIsUpdatingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Password updated successfully");
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+    setIsUpdatingPassword(false);
   };
 
   return (
@@ -80,6 +117,75 @@ export default function Settings() {
                 <Button type="submit" disabled={isSaving}>
                   {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Changes
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Change Password</CardTitle>
+              <CardDescription>Secure your account with a new password</CardDescription>
+            </CardHeader>
+            <form onSubmit={handleUpdatePassword}>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="new_password">New Password</Label>
+                  <Input 
+                    id="new_password" 
+                    type="password" 
+                    value={newPassword} 
+                    onChange={(e) => setNewPassword(e.target.value)} 
+                    placeholder="Min 6 characters" 
+                    required 
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirm_password">Confirm New Password</Label>
+                  <Input 
+                    id="confirm_password" 
+                    type="password" 
+                    value={confirmPassword} 
+                    onChange={(e) => setConfirmPassword(e.target.value)} 
+                    required 
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="border-t px-6 py-4">
+                <Button type="submit" disabled={isUpdatingPassword}>
+                  {isUpdatingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Update Password
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Update Email</CardTitle>
+              <CardDescription>Change your account email address</CardDescription>
+            </CardHeader>
+            <form onSubmit={handleUpdateEmail}>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="new_email">New Email Address</Label>
+                  <Input 
+                    id="new_email" 
+                    type="email" 
+                    value={newEmail} 
+                    onChange={(e) => setNewEmail(e.target.value)} 
+                    placeholder="new@company.com" 
+                    required 
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Note: You'll need to verify the new email address before it's updated.
+                </p>
+              </CardContent>
+              <CardFooter className="border-t px-6 py-4">
+                <Button type="submit" disabled={isUpdatingEmail}>
+                  {isUpdatingEmail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Update Email
                 </Button>
               </CardFooter>
             </form>

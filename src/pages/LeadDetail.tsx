@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { LeadStatusBadge } from "@/components/LeadStatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Phone, Mail, Calendar, User, MessageSquare, ClipboardList, Loader2, Plus, Trash2, MessageCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ export default function LeadDetail() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [taskTitle, setTaskTitle] = useState("");
+  const [tagInput, setTagInput] = useState("");
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
@@ -64,6 +66,25 @@ export default function LeadDetail() {
       toast.success("Lead updated");
     }
   });
+
+  const addTag = async () => {
+    if (!tagInput || !lead) return;
+    const currentTags = lead.tags || [];
+    if (currentTags.includes(tagInput.trim())) {
+      setTagInput("");
+      return;
+    }
+    
+    const newTags = [...currentTags, tagInput.trim()];
+    updateLead.mutate({ tags: newTags });
+    setTagInput("");
+  };
+
+  const removeTag = async (tagToRemove: string) => {
+    if (!lead) return;
+    const newTags = (lead.tags || []).filter((t: string) => t !== tagToRemove);
+    updateLead.mutate({ tags: newTags });
+  };
 
   const createTask = useMutation({
     mutationFn: async (title: string) => {
@@ -248,8 +269,76 @@ export default function LeadDetail() {
             </div>
           </div>
 
-          {/* Right Sidebar - Tasks */}
+          {/* Right Sidebar - Tasks & Remarks */}
           <div className="w-full md:w-80 space-y-6">
+            <div className="bg-card rounded-xl border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-semibold text-card-foreground">Remark</h2>
+                </div>
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-primary hover:bg-primary/10" onClick={() => {
+                  const remark = prompt("Add/Edit remark:", lead.remark || "");
+                  if (remark !== null) updateLead.mutate({ remark });
+                }}>
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="text-sm text-card-foreground p-3 bg-muted/30 rounded-lg">
+                {lead.remark ? (
+                  <p className="whitespace-pre-wrap">{lead.remark}</p>
+                ) : (
+                  <p className="text-muted-foreground italic text-xs">No remark added yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-card rounded-xl border p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <ClipboardList className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-card-foreground">Tags</h2>
+              </div>
+              
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {['Completed', 'Connected', 'Pending', 'Follow up'].map((qTag) => (
+                  <button
+                    key={qTag}
+                    onClick={() => { setTagInput(qTag); setTimeout(addTag, 0); }}
+                    className="text-[9px] px-2 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-colors uppercase font-bold"
+                  >
+                    + {qTag}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-4 border-t pt-3">
+                {(lead.tags || []).map((tag: string) => (
+                  <Badge key={tag} variant="secondary" className="px-2 py-0.5 text-[10px] flex items-center gap-1 bg-primary/5 text-primary border-primary/10">
+                    {tag}
+                    <button onClick={() => removeTag(tag)} className="hover:text-destructive">
+                      <Plus className="h-3 w-3 rotate-45" />
+                    </button>
+                  </Badge>
+                ))}
+                {(lead.tags || []).length === 0 && (
+                  <p className="text-[10px] text-muted-foreground italic">No tags assigned</p>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Add tag (e.g. Called)..." 
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addTag()}
+                  className="h-8 text-xs"
+                />
+                <Button size="sm" variant="outline" className="h-8 px-2" onClick={addTag}>
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
             <div className="bg-card rounded-xl border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">

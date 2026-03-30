@@ -139,38 +139,49 @@ export default function Integrations() {
 
       // 2. Fetch Leads per Form
       for (const form of formsData.data) {
-        const leadsRes = await fetch(`https://graph.facebook.com/v19.0/${form.id}/leads?access_token=${page.access_token}`);
-        const leadsData = await leadsRes.json();
+        let url = `https://graph.facebook.com/v19.0/${form.id}/leads?access_token=${page.access_token}&limit=100`;
+        let hasNextPage = true;
 
-        if (leadsData.data && leadsData.data.length > 0) {
-          const mapping = (linkedPages[page.id]?.field_mapping as Record<string, string>) || { 
-            full_name: 'full_name', 
-            email: 'email', 
-            phone: 'phone' 
-          };
+        while (hasNextPage) {
+          const leadsRes = await fetch(url);
+          const leadsData = await leadsRes.json();
 
-          const leadsToUpsert = leadsData.data.map((lead: any) => {
-            const getFieldValue = (name: string) => lead.field_data.find((f: any) => f.name === name)?.values?.[0] || "";
-            
-            return {
-              workspace_id: profile.workspace_id,
-              full_name: getFieldValue(mapping.full_name),
-              email: getFieldValue(mapping.email),
-              phone: getFieldValue(mapping.phone),
-              status: 'new',
-              source: 'facebook',
-              facebook_lead_id: lead.id,
-              meta_data: lead,
-              created_at: lead.created_time
+          if (leadsData.data && leadsData.data.length > 0) {
+            const mapping = (linkedPages[page.id]?.field_mapping as Record<string, string>) || { 
+              full_name: 'full_name', 
+              email: 'email', 
+              phone: 'phone' 
             };
-          });
 
-          // 3. Upsert into Supabase
-          const { error: upsertError } = await supabase
-            .from('leads')
-            .upsert(leadsToUpsert, { onConflict: 'facebook_lead_id' });
+            const leadsToUpsert = leadsData.data.map((lead: any) => {
+              const getFieldValue = (name: string) => lead.field_data.find((f: any) => f.name === name)?.values?.[0] || "";
+              
+              return {
+                workspace_id: profile.workspace_id,
+                full_name: getFieldValue(mapping.full_name),
+                email: getFieldValue(mapping.email),
+                phone: getFieldValue(mapping.phone),
+                status: 'new',
+                source: 'facebook',
+                facebook_lead_id: lead.id,
+                meta_data: lead,
+                created_at: lead.created_time
+              };
+            });
 
-          if (!upsertError) totalImported += leadsToUpsert.length;
+            // 3. Upsert into Supabase
+            const { error: upsertError } = await supabase
+              .from('leads')
+              .upsert(leadsToUpsert, { onConflict: 'facebook_lead_id' });
+
+            if (!upsertError) totalImported += leadsToUpsert.length;
+          }
+
+          if (leadsData.paging && leadsData.paging.next) {
+            url = leadsData.paging.next;
+          } else {
+            hasNextPage = false;
+          }
         }
       }
 
