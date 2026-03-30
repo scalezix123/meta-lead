@@ -37,40 +37,55 @@ export default function Leads() {
         }
 
         for (const page of pages) {
-            const formsRes = await fetch(`https://graph.facebook.com/v19.0/${page.page_id}/leadgen_forms?access_token=${page.access_token}`);
-            const formsData = await formsRes.json();
+            let formsUrl = `https://graph.facebook.com/v19.0/${page.page_id}/leadgen_forms?access_token=${page.access_token}`;
+            let hasNextForms = true;
             
-            if (!formsData.data) continue;
+            while (hasNextForms) {
+                const formsRes = await fetch(formsUrl);
+                const formsData = await formsRes.json();
+                
+                if (formsData.data) {
+                    for (const form of formsData.data) {
+                        let url = `https://graph.facebook.com/v19.0/${form.id}/leads?fields=id,created_time,field_data,campaign_name,form_id,is_organic&access_token=${page.access_token}&limit=100`;
+                        let hasNextPage = true;
 
-            for (const form of formsData.data) {
-                let url = `https://graph.facebook.com/v19.0/${form.id}/leads?access_token=${page.access_token}&limit=100`;
-                let hasNextPage = true;
+                        while (hasNextPage) {
+                            const leadsRes = await fetch(url);
+                            const leadsData = await leadsRes.json();
 
-                while (hasNextPage) {
-                    const leadsRes = await fetch(url);
-                    const leadsData = await leadsRes.json();
-
-                    if (leadsData.data && leadsData.data.length > 0) {
-                        const mapping = page.field_mapping || { full_name: 'full_name', email: 'email', phone: 'phone' };
-                        const leadsToUpsert = leadsData.data.map((lead: any) => {
-                            const getFieldValue = (name: string) => lead.field_data.find((f: any) => f.name === name)?.values?.[0] || "";
-                            return {
-                                workspace_id: profile.workspace_id,
-                                full_name: getFieldValue(mapping.full_name),
-                                email: getFieldValue(mapping.email),
-                                phone: getFieldValue(mapping.phone),
-                                status: 'new',
-                                source: 'facebook',
-                                facebook_lead_id: lead.id,
-                                meta_data: lead,
-                                created_at: lead.created_time
-                            };
-                        });
-                        const { error } = await supabase.from('leads').upsert(leadsToUpsert, { onConflict: 'facebook_lead_id' });
-                        if (!error) overallAdded += leadsToUpsert.length;
+                            if (leadsData.data && leadsData.data.length > 0) {
+                                const mapping = page.field_mapping || { full_name: 'full_name', email: 'email', phone: 'phone' };
+                                const leadsToUpsert = leadsData.data.map((lead: any) => {
+                                    const getFieldValue = (name: string) => lead.field_data.find((f: any) => f.name === name)?.values?.[0] || "";
+                                    return {
+                                        workspace_id: profile.workspace_id,
+                                        full_name: getFieldValue(mapping.full_name),
+                                        email: getFieldValue(mapping.email),
+                                        phone: getFieldValue(mapping.phone),
+                                        status: 'new',
+                                        source: 'facebook',
+                                        facebook_lead_id: lead.id,
+                                        meta_data: {
+                                            ...lead,
+                                            page_name: page.page_name || page.name,
+                                            campaign_name: lead.campaign_name || 'Direct / Organic'
+                                        },
+                                        created_at: lead.created_time
+                                    };
+                                });
+                                const { error } = await supabase.from('leads').upsert(leadsToUpsert, { onConflict: 'facebook_lead_id' });
+                                if (!error) overallAdded += leadsToUpsert.length;
+                            }
+                            if (leadsData.paging && leadsData.paging.next) url = leadsData.paging.next;
+                            else hasNextPage = false;
+                        }
                     }
-                    if (leadsData.paging && leadsData.paging.next) url = leadsData.paging.next;
-                    else hasNextPage = false;
+                }
+                
+                if (formsData.paging && formsData.paging.next) {
+                    formsUrl = formsData.paging.next;
+                } else {
+                    hasNextForms = false;
                 }
             }
         }
@@ -271,8 +286,12 @@ export default function Leads() {
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground text-xs" onClick={() => navigate(`/leads/${lead.id}`)}>
                         <div className="flex flex-col">
-                          <span className="uppercase font-bold text-[9px] text-primary">{lead.source}</span>
-                          <span className="text-muted-foreground truncate max-w-[120px]">{lead.meta_data?.page_name || 'Generic'}</span>
+                          <span className="uppercase font-bold text-[9px] text-primary" title={lead.meta_data?.campaign_name || 'Generic Campaign'}>
+                            {lead.meta_data?.campaign_name || lead.source}
+                          </span>
+                          <span className="text-muted-foreground truncate max-w-[120px] text-[10px]" title={lead.meta_data?.page_name || 'Generic Page'}>
+                            {lead.meta_data?.page_name || 'Generic Page'}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
