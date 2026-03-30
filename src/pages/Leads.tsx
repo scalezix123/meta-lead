@@ -260,6 +260,7 @@ export default function Leads() {
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead>Name</TableHead>
+                  <TableHead className="hidden md:table-cell">Phone</TableHead>
                   <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
                   <TableHead>Tags</TableHead>
                   <TableHead>TL</TableHead>
@@ -285,8 +286,11 @@ export default function Leads() {
                       <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
                         <div>
                           <p className="font-semibold text-card-foreground group-hover:text-primary transition-colors">{lead.full_name || 'No Name'}</p>
-                          <p className="text-[10px] text-muted-foreground uppercase">{lead.phone || 'No phone'}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase">{lead.email || 'No email'}</p>
                         </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground" onClick={() => navigate(`/leads/${lead.id}`)}>
+                        {lead.phone || '—'}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground text-xs" onClick={() => navigate(`/leads/${lead.id}`)}>
                         <div className="flex flex-col">
