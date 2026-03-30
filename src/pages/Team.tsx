@@ -1,8 +1,8 @@
 import { AppLayout } from "@/components/AppLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, UserPlus, Check, Copy, Loader2, Mail } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Users, UserPlus, Check, Copy, Loader2, Mail, Trash2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
 import { useState } from "react";
@@ -18,6 +18,20 @@ export default function Team() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [isInviting, setIsInviting] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleRemoveInvite = async (inviteId: string) => {
+    toast.loading("Removing invitation...");
+    const { error } = await supabase.from('workspace_invites').delete().eq('id', inviteId);
+    toast.dismiss();
+    
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Invitation removed structure");
+      queryClient.invalidateQueries({ queryKey: ['workspace-invites'] });
+    }
+  };
 
   const { data: workspace } = useQuery({
     queryKey: ['workspace', profile?.workspace_id],
@@ -250,10 +264,18 @@ export default function Team() {
                       </p>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className="mt-3 flex items-center justify-between">
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-500/10 text-orange-600 border border-orange-500/20">
                       WAITING FOR SIGNUP
                     </span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleRemoveInvite(invite.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
               ))}

@@ -317,7 +317,7 @@ export default function Leads() {
                   filtered.map(lead => (
                     <TableRow
                       key={lead.id}
-                      className={`cursor-pointer group ${isRotten(lead.created_at, lead.status) ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' : 'hover:bg-muted/50'}`}
+                      className="cursor-pointer hover:bg-muted/50 group"
                     >
                       <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
                         <div>
