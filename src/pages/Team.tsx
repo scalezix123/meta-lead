@@ -89,7 +89,19 @@ export default function Team() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success(`Invite sent to ${inviteEmail}`);
+      const subject = encodeURIComponent("You've been invited to join our CRM Workspace!");
+      const body = encodeURIComponent(
+        `Hi there,\n\n` +
+        `You have been invited to join our CRM workspace.\n\n` +
+        `Please sign up at: ${window.location.origin}/signup\n` +
+        `When prompted during registration, use this Workspace ID: ${profile.workspace_id}\n\n` +
+        `Thanks!`
+      );
+      
+      // Open the local email client
+      window.location.href = `mailto:${inviteEmail}?subject=${subject}&body=${body}`;
+
+      toast.success(`Opening email client to send invite to ${inviteEmail}`);
       setInviteEmail("");
     }
     setIsInviting(false);
