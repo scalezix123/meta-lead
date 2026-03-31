@@ -48,9 +48,7 @@ export default function Integrations() {
     async function loadData() {
       setFetchLoading(true);
       try {
-        console.log("Loading Integration Data for workspace:", profile.workspace_id);
-        
-        // 1. Fetch Workspace
+        // Fetch Workspace
         const { data: workspace, error: wError } = await supabase
           .from('workspaces')
           .select('*')
@@ -65,7 +63,6 @@ export default function Integrations() {
           setAppSecret(workspace.meta_app_secret || "");
           
           if (workspace.meta_access_token) {
-            console.log("Auto-fetching pages using saved token...");
             fetchPagesFromMeta(workspace.meta_access_token);
           }
         }
@@ -79,7 +76,6 @@ export default function Integrations() {
         if (pError) throw pError;
 
         if (pages) {
-          console.log("Loaded linked pages from DB:", pages.length);
           const mapped = pages.reduce((acc: Record<string, FacebookPage>, p) => ({ 
             ...acc, 
             [p.page_id]: { 
@@ -170,9 +166,9 @@ export default function Integrations() {
                 
                 return {
                   workspace_id: profile.workspace_id,
-                  full_name: getFieldValue(mapping.full_name, ['full_name', 'name', 'first_name', 'fullname']) || 'Prospect',
-                  email: getFieldValue(mapping.email, ['email', 'email_address']),
-                  phone: getFieldValue(mapping.phone, ['phone', 'phone_number', 'work_phone_number', 'phonenumber']),
+                  full_name: getFieldValue(mapping.full_name, ['full_name', 'name', 'first_name', 'fullname', 'full_name']) || 'Prospect',
+                  email: getFieldValue(mapping.email, ['email', 'email_address', 'email']),
+                  phone: getFieldValue(mapping.phone, ['phone', 'phone_number', 'work_phone_number', 'phonenumber', 'phone']),
                   status: 'new',
                   source: 'meta',
                   facebook_lead_id: lead.id,

@@ -67,11 +67,11 @@ export default function Leads() {
                                     };
                                     return {
                                         workspace_id: profile.workspace_id,
-                                        full_name: getFieldValue(mapping.full_name, ['full_name', 'name', 'first_name', 'fullname']),
-                                        email: getFieldValue(mapping.email, ['email', 'email_address']),
-                                        phone: getFieldValue(mapping.phone, ['phone', 'phone_number', 'work_phone_number', 'phonenumber']),
+                                        full_name: getFieldValue(mapping.full_name, ['full_name', 'name', 'first_name', 'fullname', 'full_name']) || 'Prospect',
+                                        email: getFieldValue(mapping.email, ['email', 'email_address', 'email']),
+                                        phone: getFieldValue(mapping.phone, ['phone', 'phone_number', 'work_phone_number', 'phonenumber', 'phone']),
                                         status: 'new',
-                                        source: 'facebook',
+                                        source: 'meta',
                                         facebook_lead_id: lead.id,
                                         meta_data: {
                                             ...lead,
@@ -98,7 +98,11 @@ export default function Leads() {
             }
         }
         queryClient.invalidateQueries({ queryKey: ['leads'] });
-        toast.success(`Successfully synced ${overallAdded} new leads from Meta`);
+        if (overallAdded > 0) {
+            toast.success(`Successfully synced ${overallAdded} new leads from Meta`);
+        } else {
+            toast.info("No new leads found to sync.");
+        }
     } catch (err) {
         toast.error("Error syncing leads");
     } finally {
