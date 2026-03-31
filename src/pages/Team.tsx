@@ -28,8 +28,8 @@ export default function Team() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Invitation removed structure");
-      queryClient.invalidateQueries({ queryKey: ['workspace-invites'] });
+      toast.success("Invitation removed");
+      queryClient.invalidateQueries({ queryKey: ['invites'] });
     }
   };
 
