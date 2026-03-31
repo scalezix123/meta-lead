@@ -255,30 +255,43 @@ export default function Integrations() {
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-webhook`;
 
   const handleTestWebhook = async () => {
+    if (Object.keys(linkedPages).length === 0) {
+      toast.error("Please connect at least one Page in Section 3 before testing!");
+      return;
+    }
+
     toast.promise(
-      fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entry: [{
-            id: "test_entry",
-            time: Math.floor(Date.now() / 1000),
-            changes: [{
-              field: "leadgen",
-              value: {
-                leadgen_id: "test_lead_" + Date.now(),
-                page_id: Object.keys(linkedPages)[0] || "123456789",
-                form_id: "test_form",
-                created_time: Math.floor(Date.now() / 1000)
-              }
+      async () => {
+        const res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entry: [{
+              id: "test_entry",
+              time: Math.floor(Date.now() / 1000),
+              changes: [{
+                field: "leadgen",
+                value: {
+                  leadgen_id: "test_lead_" + Date.now(),
+                  page_id: Object.keys(linkedPages)[0],
+                  form_id: "test_form",
+                  created_time: Math.floor(Date.now() / 1000)
+                }
+              }]
             }]
-          }]
-        })
-      }),
+          })
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${res.status}`);
+        }
+        return res.json();
+      },
       {
-        loading: 'Sending test webhook payload...',
-        success: 'Test payload sent! Check your Leads page in a moment.',
-        error: 'Failed to send test payload.'
+        loading: 'Sending test lead to your webhook...',
+        success: 'Test payload received! New lead should appear in your Leads table.',
+        error: (err: any) => `Webhook Error: ${err.message}`
       }
     );
   };

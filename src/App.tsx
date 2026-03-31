@@ -14,6 +14,7 @@ import Team from "./pages/Team";
 import Integrations from "./pages/Integrations";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

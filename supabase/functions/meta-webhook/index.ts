@@ -10,6 +10,11 @@ serve(async (req) => {
   const { method } = req
   const url = new URL(req.url)
 
+  // Handle CORS preflight
+  if (method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   // Handle GET for Webhook Verification
   if (method === 'GET') {
     const hubMode = url.searchParams.get('hub.mode')
@@ -60,10 +65,26 @@ serve(async (req) => {
             // 2. Process for each workspace
             for (const record of pageRecords) {
               try {
-                // Fetch Lead Details from Meta Graph API
-                const metaUrl = `https://graph.facebook.com/v19.0/${finalLeadId}?access_token=${record.access_token}`
-                const leadResp = await fetch(metaUrl)
-                const metaLeadData = await leadResp.json()
+                let metaLeadData: any = {};
+                let fieldMap: Record<string, any> = {};
+
+                // Handle Dummy Test Leads from the "Test Webhook" button
+                if (String(finalLeadId).startsWith('test_lead_')) {
+                  metaLeadData = {
+                    id: finalLeadId,
+                    created_time: new Date().toISOString(),
+                    field_data: [
+                      { name: 'full_name', values: ['Test Lead (Manual)'] },
+                      { name: 'email', values: ['test@example.com'] },
+                      { name: 'phone', values: ['+919876543210'] }
+                    ]
+                  }
+                } else {
+                  // Fetch Real Lead Details from Meta Graph API
+                  const metaUrl = `https://graph.facebook.com/v19.0/${finalLeadId}?access_token=${record.access_token}`
+                  const leadResp = await fetch(metaUrl)
+                  metaLeadData = await leadResp.json()
+                }
 
                 if (metaLeadData.error) {
                   console.error(`Meta API Error for lead ${finalLeadId} in workspace ${record.workspace_id}:`, metaLeadData.error)
@@ -71,7 +92,6 @@ serve(async (req) => {
                 }
 
                 // Map Fields
-                const fieldMap: Record<string, any> = {}
                 metaLeadData.field_data?.forEach((field: any) => {
                   fieldMap[field.name] = field.values[0]
                 })
