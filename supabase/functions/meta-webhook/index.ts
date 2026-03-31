@@ -115,9 +115,9 @@ serve(async (req) => {
                   .from('leads')
                   .upsert({
                     workspace_id: record.workspace_id,
-                    full_name: getFieldValue('full_name', ['name', 'first_name', 'fullname']) || 'Prospect',
-                    email: getFieldValue('email', ['email_address']),
-                    phone: getFieldValue('phone', ['phone_number', 'work_phone_number', 'phonenumber']),
+                    full_name: getFieldValue('full_name', ['name', 'first_name', 'fullname', 'full_name']) || 'Prospect',
+                    email: getFieldValue('email', ['email_address', 'email']),
+                    phone: getFieldValue('phone', ['phone_number', 'work_phone_number', 'phonenumber', 'phone']),
                     source: 'meta',
                     facebook_lead_id: finalLeadId,
                     meta_data: { 
@@ -129,7 +129,15 @@ serve(async (req) => {
                     }
                   }, { onConflict: 'facebook_lead_id' })
 
-                if (insertError) console.error('Error inserting lead:', insertError)
+                if (!insertError) {
+                  // Increment total leads count for this page/workspace
+                  await supabaseAdmin.rpc('increment_page_leads', { 
+                    p_page_id: String(page_id), 
+                    p_workspace_id: record.workspace_id 
+                  })
+                } else {
+                  console.error('Error inserting lead:', insertError)
+                }
               } catch (innerError) {
                 console.error(`Error processing lead for workspace ${record.workspace_id}:`, innerError)
               }

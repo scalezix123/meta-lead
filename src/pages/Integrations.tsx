@@ -396,7 +396,6 @@ export default function Integrations() {
             if (result.success) {
               toast.success("Account connected with 60-day stable token!");
               setDbData(prev => prev ? { ...prev, meta_access_token: result.access_token } : null);
-              window.history.replaceState(null, "", window.location.pathname);
               fetchPagesFromMeta(result.access_token);
             } else {
               throw new Error(result.error || "Token exchange failed");
@@ -406,6 +405,7 @@ export default function Integrations() {
             toast.error("Connection Failed: " + err.message);
           } finally {
             setLoading(false);
+            window.history.replaceState(null, "", window.location.pathname);
           }
         }
       }
