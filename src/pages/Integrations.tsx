@@ -11,8 +11,8 @@ interface Workspace {
   name: string;
   slug: string;
   meta_access_token?: string;
-  page_id?: string;
   meta_app_id?: string;
+  meta_app_secret?: string;
   created_at: string;
 }
 
@@ -32,6 +32,7 @@ export default function Integrations() {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [appId, setAppId] = useState("");
+  const [appSecret, setAppSecret] = useState("");
   const [dbData, setDbData] = useState<Workspace | null>(null);
   const [foundPages, setFoundPages] = useState<FacebookPage[]>([]);
   const [linkedPages, setLinkedPages] = useState<Record<string, FacebookPage>>({});
@@ -61,6 +62,7 @@ export default function Integrations() {
         if (workspace) {
           setDbData(workspace as Workspace);
           setAppId(workspace.meta_app_id || "");
+          setAppSecret(workspace.meta_app_secret || "");
           
           if (workspace.meta_access_token) {
             console.log("Auto-fetching pages using saved token...");
@@ -103,7 +105,6 @@ export default function Integrations() {
 
   const fetchPagesFromMeta = (token: string) => {
     setLoading(true);
-    // Fetch accounts and their pictures in one go
     fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,id,access_token,picture.type(small)&access_token=${token}`)
       .then(res => res.json())
       .then(data => {
@@ -141,7 +142,6 @@ export default function Integrations() {
         }
         isFirstPage = false;
 
-        // 2. Fetch Leads per Form
         for (const form of formsData.data) {
           let url = `https://graph.facebook.com/v19.0/${form.id}/leads?fields=id,created_time,field_data,campaign_name,form_id,is_organic&access_token=${page.access_token}&limit=100`;
           let hasNextPage = true;
@@ -170,11 +170,11 @@ export default function Integrations() {
                 
                 return {
                   workspace_id: profile.workspace_id,
-                  full_name: getFieldValue(mapping.full_name, ['full_name', 'name', 'first_name', 'fullname']),
+                  full_name: getFieldValue(mapping.full_name, ['full_name', 'name', 'first_name', 'fullname']) || 'Prospect',
                   email: getFieldValue(mapping.email, ['email', 'email_address']),
                   phone: getFieldValue(mapping.phone, ['phone', 'phone_number', 'work_phone_number', 'phonenumber']),
                   status: 'new',
-                  source: 'facebook',
+                  source: 'meta',
                   facebook_lead_id: lead.id,
                   meta_data: {
                     ...lead,
@@ -185,7 +185,6 @@ export default function Integrations() {
                 };
               });
 
-              // 3. Upsert into Supabase
               const { error: upsertError } = await supabase
                 .from('leads')
                 .upsert(leadsToUpsert, { onConflict: 'facebook_lead_id' });
@@ -211,7 +210,7 @@ export default function Integrations() {
       toast.success(`Synced ${totalImported} leads from ${page.name}!`);
     } catch (err) {
       console.error("Manual Sync Error:", err);
-      toast.error("Failed to sync leads. Check console for details.");
+      toast.error("Failed to sync leads.");
     } finally {
       setSyncingPageId(null);
     }
@@ -222,22 +221,27 @@ export default function Integrations() {
     setSavingSettings(true);
     const { error } = await supabase
       .from('workspaces')
-      .update({ meta_app_id: appId })
+      .update({ 
+        meta_app_id: appId,
+        meta_app_secret: appSecret 
+      })
       .eq('id', profile.workspace_id);
     
     if (error) {
       toast.error(error.message);
     } else {
       toast.success("Settings saved successfully");
-      setDbData(prev => prev ? { ...prev, meta_app_id: appId } : null);
+      setDbData(prev => prev ? { ...prev, meta_app_id: appId, meta_app_secret: appSecret } : null);
     }
     setSavingSettings(false);
   };
 
   const handleConnectFacebook = async () => {
     const finalAppId = dbData?.meta_app_id || appId;
-    if (!finalAppId || !profile?.workspace_id) {
-      toast.error("Please ensure App ID is saved and you are logged in.");
+    const finalSecret = dbData?.meta_app_secret || appSecret;
+
+    if (!finalAppId || !finalSecret || !profile?.workspace_id) {
+      toast.error("Please ensure App ID and App Secret are saved.");
       return;
     }
 
@@ -248,20 +252,49 @@ export default function Integrations() {
     window.location.href = authUrl;
   };
 
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-webhook`;
+
+  const handleTestWebhook = async () => {
+    toast.promise(
+      fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entry: [{
+            id: "test_entry",
+            time: Math.floor(Date.now() / 1000),
+            changes: [{
+              field: "leadgen",
+              value: {
+                leadgen_id: "test_lead_" + Date.now(),
+                page_id: Object.keys(linkedPages)[0] || "123456789",
+                form_id: "test_form",
+                created_time: Math.floor(Date.now() / 1000)
+              }
+            }]
+          }]
+        })
+      }),
+      {
+        loading: 'Sending test webhook payload...',
+        success: 'Test payload sent! Check your Leads page in a moment.',
+        error: 'Failed to send test payload.'
+      }
+    );
+  };
+
   const togglePageSync = async (page: FacebookPage) => {
     if (!profile?.workspace_id) return;
     
     const isCurrentlyLinked = !!linkedPages[page.id];
 
     if (isCurrentlyLinked) {
-      // Unlink from Facebook first
       try {
         await fetch(`https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?access_token=${page.access_token}`, { method: 'DELETE' });
       } catch (err) {
         console.error("Failed to unsubscribe app from page:", err);
       }
 
-      // Unlink in DB
       const { error } = await supabase
         .from('facebook_pages')
         .delete()
@@ -275,36 +308,45 @@ export default function Integrations() {
         toast.info(`Unlinked ${page.name}`);
       }
     } else {
-      // Subscribe app to Page leads on Facebook
+      setLoading(true);
       try {
-        const subRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?subscribed_fields=leadgen&access_token=${page.access_token}`, { 
+        const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${dbData?.meta_access_token}`);
+        const pagesData = await pagesRes.json();
+        const pageInfo = pagesData.data?.find((p: any) => p.id === page.id);
+        
+        const permanentToken = pageInfo?.access_token || page.access_token;
+
+        const subRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?subscribed_fields=leadgen&access_token=${permanentToken}`, { 
           method: 'POST' 
         });
         const subData = await subRes.json();
+        
         if (!subData.success) {
           console.error("Facebook Subscription Failed:", subData);
-          toast.warning("Saved in DB, but Facebook subscription failed. You may need to manually associate the app.");
+          toast.warning("Facebook subscription failed. Leads may not sync automatically.");
+        }
+
+        const { error } = await supabase
+          .from('facebook_pages')
+          .upsert({
+            workspace_id: profile.workspace_id,
+            page_id: page.id,
+            page_name: page.name,
+            access_token: permanentToken,
+            is_active: true
+          }, { onConflict: 'workspace_id,page_id' });
+        
+        if (!error) {
+          setLinkedPages({ ...linkedPages, [page.id]: { ...page, access_token: permanentToken } });
+          toast.success(`Connected ${page.name}! Real-time sync enabled.`);
+        } else {
+          toast.error("Failed to link page: " + error.message);
         }
       } catch (err) {
-        console.error("Failed to subscribe app to page:", err);
-      }
-
-      // Link in DB
-      const { error } = await supabase
-        .from('facebook_pages')
-        .upsert({
-          workspace_id: profile.workspace_id,
-          page_id: page.id,
-          page_name: page.name,
-          access_token: page.access_token,
-          is_active: true
-        }, { onConflict: 'workspace_id,page_id' });
-      
-      if (!error) {
-        setLinkedPages({ ...linkedPages, [page.id]: page });
-        toast.success(`Connected ${page.name}! Ready to sync leads.`);
-      } else {
-        toast.error("Failed to link page in database: " + error.message);
+        console.error("Failed to connect page:", err);
+        toast.error("An error occurred while connecting the page.");
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -314,33 +356,43 @@ export default function Integrations() {
     const handleCallback = async () => {
       const hash = window.location.hash || window.location.search;
       if (hash && hash.includes("access_token=") && profile?.workspace_id) {
-        console.log("Meta OAuth: Received token in URL", { hasHash: !!window.location.hash, hasSearch: !!window.location.search });
-        
-        // Clean the hash/search string
         const cleanHash = hash.startsWith('#') || hash.startsWith('?') ? hash.substring(1) : hash;
         const finalHash = cleanHash.startsWith('#') ? cleanHash.substring(1) : cleanHash;
         
         const params = new URLSearchParams(finalHash);
-        const accessToken = params.get("access_token");
+        const shortLivedToken = params.get("access_token");
         
-        if (accessToken) {
-          console.log("Meta OAuth: Extracted token, syncing to workspace:", profile.workspace_id);
+        if (shortLivedToken) {
           setLoading(true);
-          const { error } = await supabase
-            .from('workspaces')
-            .update({ meta_access_token: accessToken })
-            .eq('id', profile.workspace_id);
+          try {
+            // Call the secure Edge Function for token exchange
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-token-exchange`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+              },
+              body: JSON.stringify({ 
+                shortLivedToken, 
+                workspaceId: profile.workspace_id 
+              })
+            });
 
-          if (error) {
-            console.error("Meta OAuth: Supabase Update Failed", error);
-            toast.error("Failed to link account: " + error.message);
+            const result = await response.json();
+
+            if (result.success) {
+              toast.success("Account connected with 60-day stable token!");
+              setDbData(prev => prev ? { ...prev, meta_access_token: result.access_token } : null);
+              window.history.replaceState(null, "", window.location.pathname);
+              fetchPagesFromMeta(result.access_token);
+            } else {
+              throw new Error(result.error || "Token exchange failed");
+            }
+          } catch (err: any) {
+            console.error("Meta OAuth Error:", err);
+            toast.error("Connection Failed: " + err.message);
+          } finally {
             setLoading(false);
-          } else {
-            console.log("Meta OAuth: Successfully saved token to database!");
-            toast.success("Meta account linked successfully!");
-            setDbData(prev => prev ? { ...prev, meta_access_token: accessToken } : null);
-            window.history.replaceState(null, "", window.location.pathname);
-            fetchPagesFromMeta(accessToken);
           }
         }
       }
@@ -348,8 +400,6 @@ export default function Integrations() {
 
     handleCallback();
   }, [profile?.workspace_id]);
-
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-webhook`;
 
   if (fetchLoading) {
     return (
@@ -376,17 +426,31 @@ export default function Integrations() {
         <div className="bg-card rounded-lg border p-6">
           <h2 className="text-base font-semibold text-card-foreground mb-4">1. Meta App Configuration</h2>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground uppercase">Meta App ID</label>
-              <input 
-                type="text" 
-                value={appId}
-                onChange={(e) => setAppId(e.target.value)}
-                placeholder="Enter your Facebook App ID"
-                className="w-full p-2 rounded-md bg-background border text-sm"
-              />
-              <p className="text-xs text-muted-foreground">Found in your Meta Developer Console settings.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase">Meta App ID</label>
+                <input 
+                  type="text" 
+                  value={appId}
+                  onChange={(e) => setAppId(e.target.value)}
+                  placeholder="Enter your Facebook App ID"
+                  className="w-full p-2 rounded-md bg-background border text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase">Meta App Secret</label>
+                <input 
+                  type="password" 
+                  value={appSecret}
+                  onChange={(e) => setAppSecret(e.target.value)}
+                  placeholder="••••••••••••••••"
+                  className="w-full p-2 rounded-md bg-background border text-sm"
+                />
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Found in your Meta Developer Console settings. These are required for 60-day token stability.
+            </p>
             <Button size="sm" onClick={handleSaveSettings} disabled={savingSettings}>
               {savingSettings ? "Saving..." : "Save App Settings"}
             </Button>
@@ -406,17 +470,27 @@ export default function Integrations() {
               </p>
 
               <div className="mt-4 p-3 rounded-md bg-muted/50 border">
-                <div className="flex items-center gap-2">
-                  {isConnected ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      <span className="text-sm text-card-foreground font-medium">Account Linked</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm text-muted-foreground">Not connected</span>
-                    </>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isConnected ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <div className="flex flex-col">
+                          <span className="text-sm text-card-foreground font-medium">Account Linked</span>
+                          <span className="text-[10px] text-green-600 font-bold uppercase tracking-tight">60-Day Stable Session</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm text-muted-foreground">Not connected</span>
+                      </>
+                    )}
+                  </div>
+                  {isConnected && (
+                    <Button variant="ghost" size="sm" className="h-7 text-[10px] text-primary" onClick={handleTestWebhook}>
+                      Test Webhook
+                    </Button>
                   )}
                 </div>
               </div>
@@ -435,13 +509,13 @@ export default function Integrations() {
           </div>
         </div>
 
-        {/* 3. Page Management (Pro Level) */}
+        {/* 3. Page Management */}
         {isConnected && (
           <div className="bg-card rounded-lg border p-6 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-base font-semibold text-card-foreground">3. Page Management</h2>
-                <p className="text-sm text-muted-foreground mt-1">Select which Facebook Pages should sync leads to this workspace.</p>
+                <p className="text-sm text-muted-foreground mt-1">Select which Facebook Pages should sync leads.</p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => fetchPagesFromMeta(dbData?.meta_access_token!)}>
                 Refresh Pages
@@ -451,14 +525,14 @@ export default function Integrations() {
             <div className="space-y-3">
               {foundPages.length === 0 ? (
                 <div className="text-center py-8 bg-muted/20 rounded-lg border border-dashed">
-                  <p className="text-sm text-muted-foreground">No pages found. Make sure you've granted page permissions.</p>
+                  <p className="text-sm text-muted-foreground">No pages found. Grant permissions in Meta Popup.</p>
                 </div>
               ) : (
                 foundPages.map((page) => (
                   <div key={page.id} className="flex items-center justify-between p-4 rounded-xl border bg-background hover:border-primary/30 transition-all group">
                     <div className="flex items-center gap-4">
                       {page.picture ? (
-                        <img src={page.picture} alt={page.name} className="h-10 w-10 rounded-full border shadow-sm" />
+                        <img src={page.picture} alt={page.name} className="h-10 w-10 border rounded-full" />
                       ) : (
                         <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground text-sm">
                           {page.name.charAt(0)}
@@ -473,21 +547,26 @@ export default function Integrations() {
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-muted-foreground font-mono uppercase">ID: {page.id}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-[10px] text-muted-foreground font-mono uppercase">ID: {page.id}</p>
+                          {linkedPages[page.id] && (
+                            <span className="text-[9px] font-bold text-primary bg-primary/5 px-1 rounded border border-primary/10">PERMANENT SYNC</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {linkedPages[page.id] && (
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="h-8 text-[10px] px-2 uppercase font-bold tracking-wider"
+                          className="h-8 text-[10px] px-2 font-bold uppercase"
                           onClick={() => {
                             const currentMapping = (linkedPages[page.id].field_mapping as Record<string, string>) || { full_name: 'full_name', email: 'email', phone: 'phone' };
-                            const newName = prompt("Map 'Full Name' to Meta field name:", currentMapping.full_name);
-                            const newEmail = prompt("Map 'Email' to Meta field name:", currentMapping.email);
-                            const newPhone = prompt("Map 'Phone' to Meta field name:", currentMapping.phone);
+                            const newName = prompt("Map 'Full Name' to:", currentMapping.full_name);
+                            const newEmail = prompt("Map 'Email' to:", currentMapping.email);
+                            const newPhone = prompt("Map 'Phone' to:", currentMapping.phone);
                             
                             if (newName && newEmail && newPhone) {
                               const newMapping = { full_name: newName, email: newEmail, phone: newPhone };
@@ -516,12 +595,12 @@ export default function Integrations() {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="h-8 text-[10px] px-2 uppercase font-bold tracking-wider"
+                          className="h-8 text-[10px] px-2 font-bold uppercase"
                           onClick={() => handleManualSync(page)}
                           disabled={syncingPageId === page.id}
                         >
                           {syncingPageId === page.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                          Sync Leads
+                          Sync
                         </Button>
                       )}
 
@@ -546,20 +625,18 @@ export default function Integrations() {
           <h2 className="text-base font-semibold text-card-foreground mb-4">4. Webhook Configuration</h2>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Add this URL and Verify Token to your Meta App's Webhooks section to receive leads in real-time.
+              Add this URL and Verify Token to Meta Console.
             </p>
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Callback URL</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Callback URL</label>
                 <div className="flex gap-2">
                   <code className="flex-1 p-2 bg-muted rounded text-[11px] break-all border">{webhookUrl}</code>
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Verify Token</label>
-                <div className="flex gap-2">
-                  <code className="w-full p-2 bg-muted rounded text-[11px] border">my_lead_flow_token</code>
-                </div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Verify Token</label>
+                <code className="block p-2 bg-muted rounded text-[11px] border">my_lead_flow_token</code>
               </div>
             </div>
           </div>

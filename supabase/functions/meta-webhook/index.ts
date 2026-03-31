@@ -16,7 +16,6 @@ serve(async (req) => {
     const hubVerifyToken = url.searchParams.get('hub.verify_token')
     const hubChallenge = url.searchParams.get('hub.challenge')
 
-    // Use an environment variable for the verify token
     const VERIFY_TOKEN = Deno.env.get('META_VERIFY_TOKEN') || 'my_lead_flow_token'
 
     if (hubMode === 'subscribe' && hubVerifyToken === VERIFY_TOKEN) {
@@ -30,79 +29,90 @@ serve(async (req) => {
     try {
       const body = await req.json()
       
-      // Meta sends a list of entries
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+
       for (const entry of body.entry) {
         for (const change of entry.changes) {
           if (change.field === 'leadgen') {
-            const { leadgen_id, page_id, form_id } = change.value
-            
-            // 1. Initialize Supabase Client
-            const supabase = createClient(
-              Deno.env.get('SUPABASE_URL') ?? '',
-              Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-            )
+            const { leadgen_id, lead_id, page_id, form_id } = change.value
+            const finalLeadId = leadgen_id || lead_id
 
-            // 2. Find the specific linked page and workspace
-            const { data: pageRecord, error: pageError } = await supabase
-              .from('facebook_pages')
-              .select('workspace_id, access_token, field_mapping, page_name')
-              .eq('page_id', page_id)
-              .eq('is_active', true)
-              .single()
-
-            if (pageError || !pageRecord) {
-              console.error('Active linked page not found for ID:', page_id)
+            if (!finalLeadId) {
+              console.error('No lead ID found in webhook payload:', change.value)
               continue
             }
 
-            // 3. Fetch Lead Details from Meta Graph API
-            const metaUrl = `https://graph.facebook.com/v19.0/${leadgen_id}?access_token=${pageRecord.access_token}`
-            const leadResp = await fetch(metaUrl)
-            const metaLeadData = await leadResp.json()
+            // 1. Find ALL linked workspaces for this Page ID (Multi-tenant)
+            const { data: pageRecords, error: pageError } = await supabaseAdmin
+              .from('facebook_pages')
+              .select('workspace_id, access_token, field_mapping, page_name')
+              .eq('page_id', String(page_id))
+              .eq('is_active', true)
 
-            // 4. Map Fields based on Client Configuration
-            const fieldMap: Record<string, any> = {}
-            metaLeadData.field_data?.forEach((field: any) => {
-              fieldMap[field.name] = field.values[0]
-            })
-
-            // Apply custom mapping if defined
-            const mapping = pageRecord.field_mapping || {
-              full_name: 'full_name',
-              email: 'email',
-              phone: 'phone'
+            if (pageError || !pageRecords || pageRecords.length === 0) {
+              console.error(`No active workspace found for Page ID: ${page_id}`)
+              continue
             }
 
-            const getFieldValue = (name: string, fallbacks: string[] = []) => {
-              const metaKey = mapping[name] || name;
-              if (fieldMap[metaKey]) return fieldMap[metaKey]
-              
-              for (const fb of fallbacks) {
-                  if (fieldMap[fb]) return fieldMap[fb]
-              }
-              return ""
-            }
+            // 2. Process for each workspace
+            for (const record of pageRecords) {
+              try {
+                // Fetch Lead Details from Meta Graph API
+                const metaUrl = `https://graph.facebook.com/v19.0/${finalLeadId}?access_token=${record.access_token}`
+                const leadResp = await fetch(metaUrl)
+                const metaLeadData = await leadResp.json()
 
-            const { error: insertError } = await supabase
-              .from('leads')
-              .upsert({
-                workspace_id: pageRecord.workspace_id,
-                full_name: getFieldValue('full_name', ['name', 'first_name', 'fullname']) || 'Prospect',
-                email: getFieldValue('email', ['email_address']),
-                phone: getFieldValue('phone', ['phone_number', 'work_phone_number', 'phonenumber']),
-                source: 'meta',
-                facebook_lead_id: leadgen_id,
-                meta_data: { 
-                  leadgen_id, 
-                  form_id, 
-                  page_id, 
-                  page_name: pageRecord.page_name, 
-                  raw_fields: fieldMap 
+                if (metaLeadData.error) {
+                  console.error(`Meta API Error for lead ${finalLeadId} in workspace ${record.workspace_id}:`, metaLeadData.error)
+                  continue
                 }
-              })
 
-            if (insertError) {
-              console.error('Error inserting lead:', insertError)
+                // Map Fields
+                const fieldMap: Record<string, any> = {}
+                metaLeadData.field_data?.forEach((field: any) => {
+                  fieldMap[field.name] = field.values[0]
+                })
+
+                const mapping = record.field_mapping || {
+                  full_name: 'full_name',
+                  email: 'email',
+                  phone: 'phone'
+                }
+
+                const getFieldValue = (name: string, fallbacks: string[] = []) => {
+                  const metaKey = mapping[name] || name;
+                  if (fieldMap[metaKey]) return fieldMap[metaKey]
+                  for (const fb of fallbacks) {
+                      if (fieldMap[fb]) return fieldMap[fb]
+                  }
+                  return ""
+                }
+
+                const { error: insertError } = await supabaseAdmin
+                  .from('leads')
+                  .upsert({
+                    workspace_id: record.workspace_id,
+                    full_name: getFieldValue('full_name', ['name', 'first_name', 'fullname']) || 'Prospect',
+                    email: getFieldValue('email', ['email_address']),
+                    phone: getFieldValue('phone', ['phone_number', 'work_phone_number', 'phonenumber']),
+                    source: 'meta',
+                    facebook_lead_id: finalLeadId,
+                    meta_data: { 
+                      leadgen_id: finalLeadId, 
+                      form_id: form_id || metaLeadData.form_id, 
+                      page_id: page_id, 
+                      page_name: record.page_name, 
+                      raw_fields: fieldMap 
+                    }
+                  }, { onConflict: 'facebook_lead_id' })
+
+                if (insertError) console.error('Error inserting lead:', insertError)
+              } catch (innerError) {
+                console.error(`Error processing lead for workspace ${record.workspace_id}:`, innerError)
+              }
             }
           }
         }
