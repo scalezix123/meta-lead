@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { LeadStatusBadge, stageLabels } from "@/components/LeadStatusBadge";
 import { Badge } from "@/components/ui/badge";
@@ -6,13 +6,29 @@ import { CreateLeadDialog } from "@/components/CreateLeadDialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Loader2, Download, MessageCircle, RefreshCcw , LayoutGrid, ShieldAlert} from "lucide-react";
+import { Plus, Search, Loader2, Download, MessageCircle, RefreshCcw, LayoutGrid, ShieldAlert, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+
+const getSpeedLabel = (createdAt: string, status: string) => {
+  if (status !== 'new') return null;
+  const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60));
+  if (mins < 60) return { label: `${mins}m`, hot: mins < 30 };
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 48) return { label: `${hrs}h`, hot: false, warn: hrs >= 4 };
+  return { label: `${Math.floor(hrs / 24)}d`, hot: false, warn: true };
+};
+
+const getScoreColor = (score: number) => {
+  if (score >= 80) return 'bg-green-500/10 text-green-700 border-green-500/20';
+  if (score >= 60) return 'bg-blue-500/10 text-blue-700 border-blue-500/20';
+  if (score >= 40) return 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20';
+  return 'bg-red-500/10 text-red-700 border-red-500/20';
+};
 
 export default function Leads() {
   const [search, setSearch] = useState("");
@@ -22,6 +38,19 @@ export default function Leads() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+
+  // Supabase Realtime: instant lead refresh
+  useEffect(() => {
+    if (!profile?.workspace_id) return;
+    const channel = supabase
+      .channel(`realtime-leads-table-${profile.workspace_id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads', filter: `workspace_id=eq.${profile.workspace_id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['leads'] });
+        toast.success('🎯 New lead just arrived!', { duration: 4000 });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.workspace_id, queryClient]);
 
   const handleSyncAllMetaLeads = async () => {
     if (!profile?.workspace_id) return;
@@ -302,7 +331,8 @@ export default function Leads() {
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden md:table-cell">Phone</TableHead>
                   <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
-                  <TableHead>Tags</TableHead>
+                  <TableHead className="hidden md:table-cell">Score</TableHead>
+                  <TableHead className="hidden lg:table-cell">Speed</TableHead>
                   <TableHead>TL</TableHead>
                   <TableHead>Remark</TableHead>
                   <TableHead>Status</TableHead>
@@ -332,7 +362,29 @@ export default function Leads() {
                       <TableCell className="hidden md:table-cell text-muted-foreground" onClick={() => navigate(`/leads/${lead.id}`)}>
                         {lead.phone || '—'}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs" onClick={() => navigate(`/leads/${lead.id}`)}>
+                      <TableCell className="hidden md:table-cell" onClick={() => navigate(`/leads/${lead.id}`)}>
+                        {lead.lead_score !== undefined && lead.lead_score !== null ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getScoreColor(lead.lead_score)}`}>
+                            {lead.lead_score}
+                          </span>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell" onClick={() => navigate(`/leads/${lead.id}`)}>
+                        {(() => {
+                          const speed = getSpeedLabel(lead.created_at, lead.status);
+                          if (!speed) return <span className="text-muted-foreground text-xs">—</span>;
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              speed.hot ? 'bg-green-500/10 text-green-700 border-green-500/20' :
+                              speed.warn ? 'bg-red-500/10 text-red-700 border-red-500/20' :
+                              'bg-muted text-muted-foreground border-muted-foreground/20'
+                            }`}>
+                              <Clock className="h-2.5 w-2.5" />{speed.label}
+                            </span>
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs" onClick={() => navigate(`/leads/${lead.id}`)}>  
                         <div className="flex flex-col">
                           <span className="uppercase font-bold text-[9px] text-primary" title={lead.meta_data?.campaign_name || 'Generic Campaign'}>
                             {lead.meta_data?.campaign_name || lead.source}

@@ -119,6 +119,7 @@ serve(async (req) => {
                     email: getFieldValue('email', ['email_address', 'email']),
                     phone: getFieldValue('phone', ['phone_number', 'work_phone_number', 'phonenumber', 'phone']),
                     source: 'meta',
+                    lead_score: 70, // Meta leads start at 70 (high intent)
                     facebook_lead_id: finalLeadId,
                     meta_data: { 
                       leadgen_id: finalLeadId, 
@@ -135,6 +136,25 @@ serve(async (req) => {
                     p_page_id: String(page_id), 
                     p_workspace_id: record.workspace_id 
                   })
+                  // Send email notification (non-blocking)
+                  try {
+                    await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-lead-notification`, {
+                      method: 'POST',
+                      headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+                      },
+                      body: JSON.stringify({ 
+                        workspace_id: record.workspace_id,
+                        lead_name: getFieldValue('full_name', ['name', 'full_name']) || 'Prospect',
+                        lead_source: 'Meta Ads',
+                        lead_email: getFieldValue('email', ['email_address']),
+                        lead_phone: getFieldValue('phone', ['phone_number'])
+                      })
+                    })
+                  } catch (emailErr) {
+                    console.warn('Email notification failed (non-blocking):', emailErr)
+                  }
                 } else {
                   console.error('Error inserting lead:', insertError)
                 }
