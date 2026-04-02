@@ -21,6 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_workspace_id ON public.campaigns(worksp
 ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
 
 -- Dynamic workspace-based RLS policies
+DROP POLICY IF EXISTS "Users can view campaigns in their workspace" ON public.campaigns;
 CREATE POLICY "Users can view campaigns in their workspace"
     ON public.campaigns FOR SELECT
     USING (
@@ -29,6 +30,7 @@ CREATE POLICY "Users can view campaigns in their workspace"
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert/update campaigns in their workspace" ON public.campaigns;
 CREATE POLICY "Users can insert/update campaigns in their workspace"
     ON public.campaigns FOR ALL
     USING (

@@ -18,6 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_lead_activities_workspace_id ON public.lead_activ
 ALTER TABLE public.lead_activities ENABLE ROW LEVEL SECURITY;
 
 -- Dynamic workspace-based RLS policies
+DROP POLICY IF EXISTS "Users can view activities in their workspace" ON public.lead_activities;
 CREATE POLICY "Users can view activities in their workspace"
     ON public.lead_activities FOR SELECT
     USING (
@@ -26,6 +27,7 @@ CREATE POLICY "Users can view activities in their workspace"
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert activities in their workspace" ON public.lead_activities;
 CREATE POLICY "Users can insert activities in their workspace"
     ON public.lead_activities FOR INSERT
     WITH CHECK (
