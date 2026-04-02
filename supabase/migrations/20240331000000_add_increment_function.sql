@@ -7,3 +7,4 @@ BEGIN
   WHERE page_id = p_page_id AND workspace_id = p_workspace_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+

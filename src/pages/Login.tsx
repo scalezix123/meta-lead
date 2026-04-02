@@ -78,7 +78,7 @@ export default function Login() {
           if (profError) throw profError;
 
           toast.success(invite ? "Joined workspace successfully!" : "Workspace created successfully!");
-          navigate("/");
+          navigate("/dashboard");
         }
       } else {
         // Handle Login
@@ -89,7 +89,7 @@ export default function Login() {
 
         if (error) throw error;
         toast.success("Welcome back!");
-        navigate("/");
+        navigate("/dashboard");
       }
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "An unexpected error occurred");

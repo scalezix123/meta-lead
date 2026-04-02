@@ -14,6 +14,11 @@ import Team from "./pages/Team";
 import Integrations from "./pages/Integrations";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import Index from "./pages/Index";
+import Features from "./pages/marketing/Features";
+import Pricing from "./pages/marketing/Pricing";
+import ROICalculator from "./pages/marketing/ROICalculator";
+import HowItWorks from "./pages/marketing/HowItWorks";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
@@ -28,8 +33,13 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Index />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/roi-calculator" element={<ROICalculator />} />
+            <Route path="/how-it-works" element={<HowItWorks />} />
             <Route
-              path="/"
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <Dashboard />
