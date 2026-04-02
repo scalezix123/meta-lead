@@ -6,12 +6,10 @@ export const Footer = () => {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-1 md:col-span-1 space-y-6">
-            <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
-                <img src="/favicon.png" alt="Scalezix" className="h-6 w-6 object-contain" />
-              </div>
-              <span className="text-2xl font-bold tracking-tight uppercase">Scalezix</span>
-            </div>
+        <div className="flex items-center gap-3 mb-4">
+          <img src="/favicon.png" alt="Scalezix" className="h-9 w-9 object-contain" />
+          <span className="text-3xl font-black tracking-tighter uppercase leading-none">Scalezix</span>
+        </div>
               The Meta & Google Leads CRM built for closers. Connect, capture, and close with SCALEZIX.
           </div>
 

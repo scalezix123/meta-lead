@@ -12,11 +12,9 @@ export const LandingNavbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/5">
-            <img src="/favicon.png" alt="Scalezix" className="h-6 w-6 object-contain" />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-gray-900 uppercase">Scalezix</span>
+        <Link to="/" className="flex items-center gap-3 transition-opacity hover:opacity-90">
+          <img src="/favicon.png" alt="Scalezix" className="h-9 w-9 object-contain" />
+          <span className="text-2xl font-black tracking-tighter text-gray-900 uppercase">Scalezix</span>
         </Link>
         
         <div className="hidden md:flex items-center gap-8">

@@ -120,11 +120,9 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/5">
-            <img src="/favicon.png" alt="Scalezix" className="h-8 w-8 object-contain" />
-          </div>
-          <span className="text-xl font-bold text-foreground tracking-tight">Scalezix</span>
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <img src="/favicon.png" alt="Scalezix" className="h-10 w-10 object-contain" />
+          <span className="text-3xl font-black text-foreground tracking-tighter uppercase leading-none">Scalezix</span>
         </div>
 
         <div className="bg-card rounded-lg border p-6">

@@ -20,60 +20,75 @@ const Pricing = () => {
       name: "Starter",
       monthlyPrice: 599,
       annualPrice: 499,
-      description: "Perfect for solo consultants and small businesses just getting started with Meta lead ads.",
+      description: "For solo operators and small businesses just getting started.",
       features: [
-        { name: "Facebook Pages", detail: "1 Page" },
+        { name: "Meta Pages", detail: "1 Page" },
         { name: "Monthly Leads", detail: "Up to 500 leads" },
         { name: "Team Members", detail: "2 Seats" },
-        { name: "Pipeline Board", detail: "Included" },
-        { name: "Lead Detail & Remarks", detail: "Included" },
+        { name: "Lead Detail & Notes", detail: "Included" },
         { name: "Tasks & Follow-ups", detail: "Included" },
-        { name: "Basic Analytics", detail: "Totals + Recent leads" },
+        { name: "WhatsApp Alerts", detail: "Included" },
         { name: "Support", detail: "Email Support" }
       ],
-      bestFor: "Real estate agents, education consultants, local businesses.",
-      buttonText: "Start 7-Day Free Trial",
+      bestFor: "Solo agents, individual coaches, local clinics.",
+      buttonText: "Start Free Trial",
       popular: false
     },
     {
-      name: "Growth",
-      monthlyPrice: 1499,
-      annualPrice: 1249,
-      description: "For agencies and growing teams managing multiple pages and higher lead volume.",
+      name: "Professional",
+      monthlyPrice: 1199,
+      annualPrice: 999,
+      description: "The complete package for a serious growing business.",
       features: [
-        { name: "Facebook Pages", detail: "Up to 5 Pages" },
-        { name: "Monthly Leads", detail: "Unlimited" },
-        { name: "Team Members", detail: "10 Seats" },
-        { name: "Pipeline Board", detail: "Included" },
-        { name: "Lead Detail & Activity Log", detail: "Included" },
-        { name: "Tasks & Follow-ups", detail: "Included" },
-        { name: "Full Analytics", detail: "Funnel + Volume Charts" },
-        { name: "Campaign ROI Tracking", detail: "Included" },
+        { name: "Meta + Google Ads", detail: "3 Pages" },
+        { name: "Monthly Leads", detail: "Up to 2,000" },
+        { name: "Team Members", detail: "5 Seats" },
+        { name: "Custom Pipeline", detail: "Included" },
+        { name: "Call Log Tracker", detail: "Included" },
+        { name: "Campaign ROI", detail: "Included" },
         { name: "Closer Leaderboard", detail: "Included" },
-        { name: "Priority Support", detail: "Priority Email" }
+        { name: "Support", detail: "Priority Email" }
       ],
-      bestFor: "Marketing agencies, EdTech companies, real estate developers.",
-      buttonText: "Start 7-Day Free Trial",
+      bestFor: "Real estate teams, EdTech, clinics, car dealerships.",
+      buttonText: "Start Free Trial",
       popular: true
     },
     {
-      name: "Agency",
-      monthlyPrice: 3499,
-      annualPrice: 2915,
-      description: "For established agencies managing multiple client accounts with large teams.",
+      name: "Growth",
+      monthlyPrice: 2499,
+      annualPrice: 2080,
+      description: "For agencies and high-volume businesses.",
       features: [
-        { name: "Facebook Pages", detail: "Unlimited" },
+        { name: "Meta + Google Ads", detail: "10 Pages" },
         { name: "Monthly Leads", detail: "Unlimited" },
-        { name: "Team Members", detail: "Unlimited seats" },
-        { name: "All Growth Plan features", detail: "Included" },
-        { name: "Lead Detail & Remarks", detail: "Included" },
-        { name: "Tasks & Follow-ups", detail: "Included" },
-        { name: "Full Analytics & Dashboard", detail: "Full Suite" },
-        { name: "1-on-1 Onboarding", detail: "Setup Call Included" },
-        { name: "WhatsApp Support", detail: "Dedicated Support" }
+        { name: "Team Members", detail: "15 Seats" },
+        { name: "Advanced Analytics", detail: "Full Suite" },
+        { name: "Ad Set Tracking", detail: "Included" },
+        { name: "Manager Roles", detail: "Included" },
+        { name: "Onboarding Call", detail: "Included" },
+        { name: "Support", detail: "WhatsApp" }
       ],
-      bestFor: "Large agencies, enterprise sales teams, 10+ closers.",
-      buttonText: "Contact Sales",
+      bestFor: "Agencies, large developers, enterprise teams.",
+      buttonText: "Start Free Trial",
+      popular: false
+    },
+    {
+      name: "Custom",
+      monthlyPrice: "Custom",
+      annualPrice: "Custom",
+      description: "For large teams and enterprises with professional needs.",
+      features: [
+        { name: "Meta + Google Ads", detail: "Unlimited" },
+        { name: "Team Members", detail: "Unlimited" },
+        { name: "White Label Option", detail: "Included" },
+        { name: "API Integrations", detail: "Full Access" },
+        { name: "Data Residency", detail: "Custom" },
+        { name: "AI Lead Scoring", detail: "Included" },
+        { name: "Priority Support", detail: "Hotline" },
+        { name: "GST Invoice", detail: "Available" }
+      ],
+      bestFor: "Large agencies, national EdTech, franchise chains.",
+      buttonText: "Contact Us",
       popular: false
     }
   ];
@@ -120,7 +135,7 @@ const Pricing = () => {
         {/* Pricing Cards */}
         <section className="py-24 -mt-12">
           <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
               {plans.map((plan, idx) => (
                 <Card key={idx} className={`flex flex-col relative transition-all duration-300 ${plan.popular ? 'border-blue-500 ring-4 ring-blue-50 shadow-2xl scale-105 z-10 bg-white' : 'border-gray-200 shadow-lg translate-y-4'}`}>
                   {plan.popular && (
@@ -132,10 +147,11 @@ const Pricing = () => {
                     <CardTitle className="text-2xl font-black text-gray-900 mb-2 uppercase tracking-tight">{plan.name}</CardTitle>
                     <p className="text-sm text-gray-500 font-medium leading-relaxed mb-6 h-12">{plan.description}</p>
                     <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-5xl font-black text-gray-900">₹{isAnnual ? plan.annualPrice : plan.monthlyPrice}</span>
-                      <span className="text-gray-500 font-bold">/mo</span>
+                      {plan.monthlyPrice !== "Custom" && <span className="text-5xl font-black text-gray-900">₹{isAnnual ? plan.annualPrice : plan.monthlyPrice}</span>}
+                      {plan.monthlyPrice === "Custom" && <span className="text-4xl font-black text-gray-900">Custom</span>}
+                      {plan.monthlyPrice !== "Custom" && <span className="text-gray-500 font-bold">/mo</span>}
                     </div>
-                    {isAnnual && (
+                    {isAnnual && typeof plan.monthlyPrice === 'number' && typeof plan.annualPrice === 'number' && (
                       <p className="text-xs text-green-600 font-bold mt-2 uppercase tracking-wider italic animate-pulse">Billed annually (Save ₹{(plan.monthlyPrice - plan.annualPrice) * 12})</p>
                     )}
                   </CardHeader>
