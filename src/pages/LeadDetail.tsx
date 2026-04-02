@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { LeadStatusBadge } from "@/components/LeadStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, Mail, Calendar, User, MessageSquare, ClipboardList, Loader2, Plus, Trash2, MessageCircle } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Calendar, User, MessageSquare, ClipboardList, Loader2, Plus, Trash2, MessageCircle, History, Clock, TrendingUp } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
@@ -38,6 +38,24 @@ export default function LeadDetail() {
     },
     enabled: !!id,
   });
+  
+  const { data: activities = [] } = useQuery({
+    queryKey: ['lead-activities', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lead_activities')
+        .select(`
+          *,
+          user:profiles (full_name)
+        `)
+        .eq('lead_id', id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
 
   const { data: members = [] } = useQuery({
     queryKey: ['team', profile?.workspace_id],
@@ -63,7 +81,28 @@ export default function LeadDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead', id] });
+      queryClient.invalidateQueries({ queryKey: ['lead-activities', id] });
       toast.success("Lead updated");
+    }
+  });
+
+  const logActivity = useMutation({
+    mutationFn: async ({ type, content, metadata = {} }: { type: string, content: string, metadata?: any }) => {
+      if (!profile?.workspace_id || !id) return;
+      const { error } = await supabase
+        .from('lead_activities')
+        .insert([{
+          lead_id: id,
+          workspace_id: profile.workspace_id,
+          user_id: profile.id,
+          type,
+          content,
+          metadata
+        }]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead-activities', id] });
     }
   });
 
@@ -172,68 +211,132 @@ export default function LeadDetail() {
                   <p className="text-sm text-muted-foreground mt-1 capitalize">{lead.source}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <LeadStatusBadge status={lead.status} />
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => {
-                    if (confirm("Are you sure you want to delete this lead?")) deleteLead.mutate();
-                  }}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Phone className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">Phone</p>
-                      <p className="text-sm text-card-foreground">{lead.phone || 'No phone'}</p>
-                    </div>
-                  </div>
-                  {lead.phone && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-green-600 hover:bg-green-500/10 h-8"
-                      onClick={() => window.open(`https://wa.me/${lead.phone.replace(/[^\d]/g, '')}`, '_blank')}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
-                    </Button>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Mail className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Email</p>
-                    <p className="text-sm text-card-foreground">{lead.email || 'No email'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Assignee</p>
+                    <LeadStatusBadge status={lead.status} />
                     <Select 
-                      value={lead.assigned_to || ""} 
-                      onValueChange={(val) => updateLead.mutate({ assigned_to: val === "unassigned" ? null : val })}
+                      value={lead.status} 
+                      onValueChange={(val) => {
+                        updateLead.mutate({ status: val });
+                        logActivity.mutate({ 
+                          type: 'status_change', 
+                          content: `Status updated to ${val.toUpperCase()}` 
+                        });
+                      }}
                     >
-                      <SelectTrigger className="h-8 border-none p-0 bg-transparent text-sm focus:ring-0">
-                        <SelectValue placeholder="Unassigned" />
+                      <SelectTrigger className="h-8 w-[120px] ml-2">
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {members.map(member => (
-                          <SelectItem key={member.id} value={member.id}>{member.full_name}</SelectItem>
+                        {['new', 'contacted', 'qualified', 'won', 'lost'].map(s => (
+                          <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => {
+                      if (confirm("Are you sure you want to delete this lead?")) deleteLead.mutate();
+                    }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Phone className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold">Phone</p>
+                        <p className="text-sm text-card-foreground">{lead.phone || 'No phone'}</p>
+                      </div>
+                    </div>
+                    {lead.phone && (
+                      <div className="flex gap-2">
+                          <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-primary hover:bg-primary/10 h-8"
+                          onClick={() => {
+                              logActivity.mutate({ type: 'call', content: 'Attempted Phone Call' });
+                              window.open(`tel:${lead.phone.replace(/[^\d]/g, '')}`, '_self');
+                          }}
+                          >
+                          <Phone className="h-4 w-4 mr-2" /> Call
+                          </Button>
+                          <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-green-600 hover:bg-green-500/10 h-8"
+                          onClick={() => {
+                              logActivity.mutate({ type: 'whatsapp', content: 'Sent WhatsApp Message' });
+                              window.open(`https://wa.me/${lead.phone.replace(/[^\d]/g, '')}`, '_blank');
+                          }}
+                          >
+                          <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
+                          </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Mail className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">Email</p>
+                      <p className="text-sm text-card-foreground">{lead.email || 'No email'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">Assignee</p>
+                      <Select 
+                        value={lead.assigned_to || ""} 
+                        onValueChange={(val) => {
+                          const isUnassigned = val === "unassigned";
+                          updateLead.mutate({ assigned_to: isUnassigned ? null : val });
+                          const membersName = members.find(m => m.id === val)?.full_name || 'Unassigned';
+                          logActivity.mutate({ 
+                            type: 'assignment', 
+                            content: `Lead assigned to ${membersName}` 
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 border-none p-0 bg-transparent text-sm focus:ring-0">
+                          <SelectValue placeholder="Unassigned" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          {members.map(member => (
+                            <SelectItem key={member.id} value={member.id}>{member.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">Lead Value</p>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-bold text-green-600">₹</span>
+                        <input 
+                          type="number"
+                          className="w-full bg-transparent border-none p-0 text-sm font-bold focus:ring-0 text-green-600"
+                          placeholder="0.00"
+                          value={lead.lead_value || ""}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            updateLead.mutate({ lead_value: val });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                     <Calendar className="h-4 w-4 text-primary" />
@@ -265,6 +368,38 @@ export default function LeadDetail() {
                 ) : (
                   <p className="text-sm text-muted-foreground italic">No additional meta data found.</p>
                 )}
+              </div>
+            </div>
+            {/* Activity History Timeline */}
+            <div className="bg-card rounded-xl border p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <History className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-card-foreground">Activity History</h2>
+              </div>
+              
+              <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-0 before:w-px before:bg-muted">
+                {activities.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic pl-8">No activities recorded yet.</p>
+                ) : activities.map((activity: any, idx: number) => (
+                  <div key={activity.id} className="relative pl-8 animate-in fade-in slide-in-from-left-2 transition-all">
+                    <div className={`absolute left-0 top-1 h-6 w-6 rounded-full flex items-center justify-center border bg-card z-10 
+                      ${activity.type === 'whatsapp' ? 'text-green-500 border-green-200' : 
+                        activity.type === 'status_change' ? 'text-blue-500 border-blue-200' : 
+                        activity.type === 'call' ? 'text-primary border-primary/20' : 'text-muted-foreground'}`}>
+                      {activity.type === 'whatsapp' ? <MessageCircle className="h-3 w-3" /> :
+                       activity.type === 'call' ? <Phone className="h-3 w-3" /> :
+                       activity.type === 'status_change' ? <Clock className="h-3 w-3" /> :
+                       <History className="h-3 w-3" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-sm font-bold text-card-foreground">{activity.content}</span>
+                        <span className="text-[10px] text-muted-foreground">• {new Date(activity.created_at).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">by {activity.user?.full_name || 'System'}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

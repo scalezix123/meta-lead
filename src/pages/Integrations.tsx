@@ -466,14 +466,54 @@ export default function Integrations() {
           </div>
         </div>
 
-        {/* 2. Connection */}
+        {/* 2. Google Ads Connection */}
+        <div className="bg-card rounded-lg border p-6">
+          <div className="flex items-start gap-4">
+            <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+              <svg className="h-5 w-5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C9.03,19.27 6.48,16.68 6.48,13.5C6.48,10.31 9.03,7.74 12.19,7.74C13.97,7.74 15.41,8.38 16.5,9.4L18.47,7.44C17.21,6.19 15.1,5 12.19,5C7.5,5 3.74,8.81 3.74,13.5C3.74,18.19 7.5,22 12.19,22C17.43,22 21.5,18.33 21.5,13.11C21.5,12.39 21.43,11.71 21.35,11.1H21.35Z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-base font-semibold text-card-foreground">2. Google Ads Connection</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Capture leads from Google Search and Lead Form extensions.
+              </p>
+
+              <div className="mt-4 space-y-4">
+                <div className="p-3 rounded-md bg-muted/50 border">
+                    <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="h-4 w-4 text-orange-500" />
+                        <span className="text-xs font-bold uppercase text-orange-600">Webhook Method</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Google Ads uses a standard Webhook URL to send leads. Add the <b>Google Webhook URL</b> from Section 5 to your Google Ads Lead Form configuration.
+                    </p>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Google Verify Token</label>
+                    <div className="flex gap-2">
+                        <code className="flex-1 p-2 bg-background border rounded text-[11px] font-mono">google_ads_sync_scalezix</code>
+                        <Button size="sm" variant="outline" className="h-8 text-[10px]" onClick={() => {
+                            navigator.clipboard.writeText("google_ads_sync_scalezix");
+                            toast.success("Token copied!");
+                        }}>Copy</Button>
+                    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Meta Connection */}
         <div className="bg-card rounded-lg border p-6">
           <div className="flex items-start gap-4">
             <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
               <Facebook className="h-5 w-5 text-blue-600" />
             </div>
             <div className="flex-1">
-              <h2 className="text-base font-semibold text-card-foreground">2. Meta Connection</h2>
+              <h2 className="text-base font-semibold text-card-foreground">3. Meta Connection</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Authorise Scalezix to access your Facebook account and pages.
               </p>
@@ -518,12 +558,12 @@ export default function Integrations() {
           </div>
         </div>
 
-        {/* 3. Page Management */}
+        {/* 4. Page Management */}
         {isConnected && (
           <div className="bg-card rounded-lg border p-6 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-base font-semibold text-card-foreground">3. Page Management</h2>
+                <h2 className="text-base font-semibold text-card-foreground">4. Page Management</h2>
                 <p className="text-sm text-muted-foreground mt-1">Select which Facebook Pages should sync leads.</p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => fetchPagesFromMeta(dbData?.meta_access_token!)}>
@@ -629,22 +669,28 @@ export default function Integrations() {
           </div>
         )}
 
-        {/* 4. Webhook Settings */}
+        {/* 5. Webhook Settings */}
         <div className="bg-card rounded-lg border p-6">
-          <h2 className="text-base font-semibold text-card-foreground mb-4">4. Webhook Configuration</h2>
+          <h2 className="text-base font-semibold text-card-foreground mb-4">5. Webhook Configuration</h2>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Add this URL and Verify Token to Meta Console.
+              Add this URL and Verify Token to Meta or Google Ads Console.
             </p>
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Callback URL</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Meta Webhook URL</label>
                 <div className="flex gap-2">
                   <code className="flex-1 p-2 bg-muted rounded text-[11px] break-all border">{webhookUrl}</code>
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Verify Token</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Google Webhook URL</label>
+                <div className="flex gap-2">
+                  <code className="flex-1 p-2 bg-muted rounded text-[11px] break-all border">{webhookUrl.replace('meta-webhook', 'google-webhook')}</code>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Meta Verify Token</label>
                 <code className="block p-2 bg-muted rounded text-[11px] border">my_lead_flow_token</code>
               </div>
             </div>

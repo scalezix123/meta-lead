@@ -12,6 +12,7 @@ import LeadDetail from "./pages/LeadDetail";
 import Tasks from "./pages/Tasks";
 import Team from "./pages/Team";
 import Integrations from "./pages/Integrations";
+import Campaigns from "./pages/Campaigns";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Index from "./pages/Index";
@@ -91,6 +92,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Integrations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/campaigns"
+              element={
+                <ProtectedRoute>
+                  <Campaigns />
                 </ProtectedRoute>
               }
             />

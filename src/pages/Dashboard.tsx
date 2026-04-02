@@ -26,6 +26,20 @@ export default function Dashboard() {
     enabled: !!profile?.workspace_id,
   });
 
+  const { data: campaigns = [], isLoading: campaignsLoading } = useQuery({
+    queryKey: ['dashboard-campaigns', profile?.workspace_id],
+    queryFn: async () => {
+      if (!profile?.workspace_id) return [];
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('workspace_id', profile.workspace_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.workspace_id,
+  });
+
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['dashboard-tasks', profile?.workspace_id],
     queryFn: async () => {
@@ -58,6 +72,12 @@ export default function Dashboard() {
   const todayLeads = leads.filter(l => l.created_at.startsWith(today));
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
   const recentLeads = leads.slice(0, 5);
+
+  // Financial Calculations
+  const totalPipelineValue = leads.reduce((acc, lead) => acc + (lead.lead_value || 0), 0);
+  const wonRevenue = leads.filter(l => l.status === 'won').reduce((acc, lead) => acc + (lead.lead_value || 0), 0);
+  const totalAdSpend = campaigns.reduce((acc, camp) => acc + (camp.ad_spend || 0), 0);
+  const roas = totalAdSpend > 0 ? (wonRevenue / totalAdSpend).toFixed(2) : "0.00";
 
   // 1. Chart Data Preparation (last 7 days Volume)
   const chartData = Array.from({ length: 7 }, (_, i) => {
@@ -108,7 +128,7 @@ export default function Dashboard() {
       };
     });
 
-  if (leadsLoading || tasksLoading || membersLoading) {
+  if (leadsLoading || tasksLoading || membersLoading || campaignsLoading) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center p-12">
@@ -133,9 +153,23 @@ export default function Dashboard() {
             icon={Target} 
             trend={todayLeads.length > 0 ? `+${todayLeads.length} today` : undefined} 
           />
-          <StatCard title="Leads Today" value={todayLeads.length} icon={TrendingUp} />
-          <StatCard title="Team Members" value={members.length} icon={Users} />
-          <StatCard title="Total Won!" value={leads.filter(l => l.status === 'won').length} icon={Trophy} />
+          <StatCard 
+            title="Pipeline Value" 
+            value={`₹${totalPipelineValue.toLocaleString('en-IN')}`} 
+            icon={TrendingUp} 
+          />
+          <StatCard 
+            title="Won Revenue" 
+            value={`₹${wonRevenue.toLocaleString('en-IN')}`} 
+            icon={Trophy} 
+            trend={totalAdSpend > 0 ? `Spend: ₹${totalAdSpend.toLocaleString('en-IN')}` : undefined}
+          />
+          <StatCard 
+            title="ROAS" 
+            value={`${roas}x`} 
+            icon={BarChart3} 
+            trend="Return on Ad Spend"
+          />
         </div>
 
         {/* Top Analytics Row */}

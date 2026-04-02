@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Target, Kanban, Plug, ClipboardList, LogOut, User } from "lucide-react";
+import { LayoutDashboard, Users, Target, Kanban, Plug, ClipboardList, LogOut, User, Megaphone } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -22,6 +22,7 @@ const mainNav = [
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Tasks", url: "/tasks", icon: ClipboardList },
   { title: "Team", url: "/team", icon: Users },
+  { title: "Ad Spend", url: "/campaigns", icon: Megaphone },
   { title: "Integrations", url: "/integrations", icon: Plug },
   { title: "Settings", url: "/settings", icon: User },
 ];
