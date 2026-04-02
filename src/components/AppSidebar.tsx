@@ -44,8 +44,8 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <div className="flex items-center gap-2 px-4 py-5 border-b border-sidebar-border">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-          <Target className="h-4 w-4 text-sidebar-primary-foreground" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary/5">
+          <img src="/favicon.png" alt="Scalezix" className="h-6 w-6 object-contain" />
         </div>
         {!collapsed && (
           <span className="text-lg font-bold text-sidebar-accent-foreground tracking-tight">

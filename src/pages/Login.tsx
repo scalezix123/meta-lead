@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Target, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -121,8 +121,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-            <Target className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/5">
+            <img src="/favicon.png" alt="Scalezix" className="h-8 w-8 object-contain" />
           </div>
           <span className="text-xl font-bold text-foreground tracking-tight">Scalezix</span>
         </div>

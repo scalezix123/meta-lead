@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Target } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export const LandingNavbar = () => {
@@ -14,8 +13,8 @@ export const LandingNavbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Target className="h-4 w-4 text-primary-foreground" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/5">
+            <img src="/favicon.png" alt="Scalezix" className="h-6 w-6 object-contain" />
           </div>
           <span className="text-xl font-bold tracking-tight text-gray-900 uppercase">Scalezix</span>
         </Link>
