@@ -313,7 +313,7 @@ export default function Leads() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground italic">
+                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground italic">
                       No leads found matching your criteria.
                     </TableCell>
                   </TableRow>

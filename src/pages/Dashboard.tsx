@@ -1,4 +1,4 @@
-import { Target, Users, TrendingUp, CalendarCheck, Loader2, BarChart3, Trophy, PieChart } from "lucide-react";
+import { Target, TrendingUp, Loader2, BarChart3, Trophy, PieChart } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { LeadStatusBadge } from "@/components/LeadStatusBadge";
 import { AppLayout } from "@/components/AppLayout";

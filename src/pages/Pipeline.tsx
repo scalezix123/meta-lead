@@ -2,16 +2,16 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { LeadStatusBadge, stageLabels } from "@/components/LeadStatusBadge";
 import { useNavigate } from "react-router-dom";
-
-const pipelineStages = ['new', 'contacted', 'qualified', 'won', 'lost'];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
-import { Loader2, Plus, Phone, Mail } from "lucide-react";
+import { Loader2, Plus, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { CreateLeadDialog } from "@/components/CreateLeadDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+const pipelineStages = ['new', 'contacted', 'qualified', 'won', 'lost'];
 
 export default function Pipeline() {
   const { profile } = useAuth();

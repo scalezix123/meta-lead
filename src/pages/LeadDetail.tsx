@@ -12,6 +12,29 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 
+const QUICK_REPLIES = [
+  {
+    label: "👋 Intro",
+    message: (name: string) => `Hi ${name}! I'm reaching out from our team. We received your inquiry and would love to connect. When's a good time to talk?`
+  },
+  {
+    label: "🔁 Follow-up",
+    message: (name: string) => `Hi ${name}, just following up on our previous conversation. Have you had a chance to consider our offer? Happy to answer any questions!`
+  },
+  {
+    label: "💰 Quote Ready",
+    message: (name: string) => `Hi ${name}! Your customized quote is ready. I'd love to walk you through the details. Can we schedule a quick call today?`
+  },
+  {
+    label: "📞 Missed Call",
+    message: (name: string) => `Hi ${name}, I tried reaching you but couldn't connect. Please call or WhatsApp back when convenient — looking forward to speaking with you!`
+  },
+  {
+    label: "🤝 Closing",
+    message: (name: string) => `Hi ${name}! This is a great time to move forward. We only have a few slots left this month. Shall we lock it in today?`
+  },
+];
+
 export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -19,6 +42,7 @@ export default function LeadDetail() {
   const queryClient = useQueryClient();
   const [taskTitle, setTaskTitle] = useState("");
   const [tagInput, setTagInput] = useState("");
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
@@ -274,9 +298,38 @@ export default function LeadDetail() {
                           >
                           <MessageCircle className="h-4 w-4 mr-2" /> WhatsApp
                           </Button>
+                          <Button 
+                          variant="outline"
+                          size="sm" 
+                          className="h-8 text-[10px] font-bold border-green-500/30 text-green-700 hover:bg-green-50"
+                          onClick={() => setShowQuickReplies(v => !v)}
+                          >
+                          ⚡ Quick Reply
+                          </Button>
                       </div>
                     )}
                   </div>
+                  {showQuickReplies && lead.phone && (
+                    <div className="col-span-2 mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold mb-2">Select a template to send via WhatsApp:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {QUICK_REPLIES.map((qr) => (
+                          <button
+                            key={qr.label}
+                            className="text-xs px-3 py-1.5 rounded-full border border-green-500/30 bg-green-500/5 text-green-700 hover:bg-green-500/15 transition-colors font-medium"
+                            onClick={() => {
+                              const msg = encodeURIComponent(qr.message(lead.full_name || 'there'));
+                              const cleanPhone = lead.phone.replace(/[^\d]/g, '');
+                              logActivity.mutate({ type: 'whatsapp', content: `Quick Reply: ${qr.label}` });
+                              window.open(`https://wa.me/${cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone}?text=${msg}`, '_blank');
+                            }}
+                          >
+                            {qr.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                       <Mail className="h-4 w-4 text-primary" />
