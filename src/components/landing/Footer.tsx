@@ -11,11 +11,9 @@ export const Footer = () => {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <Target className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="text-2xl font-bold tracking-tight">Scalezix</span>
+              <span className="text-2xl font-bold tracking-tight uppercase">Scalezix</span>
             </div>
-            <p className="text-gray-400 leading-relaxed">
-              The Meta Leads CRM built for closers. Connect, capture, and close in 2 minutes.
-            </p>
+              The Meta & Google Leads CRM built for closers. Connect, capture, and close with SCALEZIX.
           </div>
 
           <div>
@@ -50,7 +48,7 @@ export const Footer = () => {
 
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
           <p className="text-sm text-gray-500">
-            © {new Date().getFullYear()} Scalezix. All rights reserved.
+            © {new Date().getFullYear()} SCALEZIX. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-gray-500 text-sm">
             <Link to="/privacy" className="hover:text-white">Privacy</Link>

@@ -8,59 +8,73 @@ export const PricingSection = () => {
     {
       name: "Starter",
       price: "₹599",
-      description: "Perfect for solo consultants and small businesses.",
+      description: "For solo operators and small businesses just getting started.",
       features: [
         "1 Facebook Page",
         "Up to 500 leads/month",
         "2 Team Member seats",
-        "Pipeline Board Included",
-        "Lead Detail & Remarks",
+        "Pipeline Board (Default)",
+        "Lead Detail & Notes",
         "Tasks & Follow-ups",
-        "Basic Analytics (totals + recent leads)",
-        "Email Support",
-        "7-day Free Trial"
+        "WhatsApp Lead Alerts",
+        "Email Support"
       ],
-      bestFor: "Real estate agents, education consultants, local businesses.",
+      bestFor: "Solo agents, individual coaches, local clinics.",
       buttonText: "Start Free Trial",
       popular: false
     },
     {
-      name: "Growth",
-      price: "₹1,499",
-      description: "For agencies and growing teams managing multiple pages.",
+      name: "Professional",
+      price: "₹1,199",
+      description: "The complete package for a serious growing business.",
       features: [
-        "Up to 5 Facebook Pages",
-        "Unlimited Monthly Leads",
-        "10 Team Member seats",
-        "Pipeline Board Included",
-        "Lead Detail & Activity Log",
-        "Tasks & Follow-ups",
-        "Full Analytics (funnel + charts)",
+        "3 Meta Pages + Google Ads",
+        "Up to 2,000 leads/month",
+        "5 Team Member seats",
+        "Custom Pipeline Stages",
+        "Call Log Tracker",
         "Campaign ROI Tracking",
         "Closer Leaderboard",
-        "Priority Email Support",
-        "7-day Free Trial"
+        "Priority Email Support"
       ],
-      bestFor: "Marketing agencies, EdTech, Real estate developers.",
+      bestFor: "Real estate teams, EdTech, clinics, car dealerships.",
       buttonText: "Start Free Trial",
       popular: true
     },
     {
-      name: "Agency",
-      price: "₹3,499",
-      description: "For established agencies managing client accounts.",
+      name: "Growth",
+      price: "₹2,499",
+      description: "For agencies and high-volume businesses.",
       features: [
-        "Unlimited Facebook Pages",
+        "10 Meta Pages + Google Ads",
         "Unlimited Monthly Leads",
-        "Unlimited Team Member seats",
-        "All Growth Plan features",
-        "1-on-1 Onboarding Call",
-        "Dedicated WhatsApp support",
-        "API access for higher sync volume",
-        "7-day Free Trial"
+        "15 Team Member seats",
+        "Advanced Analytics",
+        "Ad Set & Keyword Tracking",
+        "Manager Roles",
+        "Onboarding Call",
+        "Dedicated WhatsApp Support"
       ],
-      bestFor: "Large agencies, enterprise sales teams, 10+ closers.",
-      buttonText: "Get Started",
+      bestFor: "Agencies, large developers, enterprise teams.",
+      buttonText: "Start Free Trial",
+      popular: false
+    },
+    {
+      name: "Custom",
+      price: "Custom",
+      description: "For large teams and enterprises with specific needs.",
+      features: [
+        "Unlimited Pages & Ads",
+        "Unlimited Team Members",
+        "White Label Option",
+        "API & Custom Integrations",
+        "Data Residency Control",
+        "AI Lead Scoring",
+        "Priority Hotline Support",
+        "GST Invoice available"
+      ],
+      bestFor: "Large agencies, national EdTech, franchise chains.",
+      buttonText: "Contact Us",
       popular: false
     }
   ];
@@ -81,7 +95,7 @@ export const PricingSection = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-24">
           {plans.map((plan, idx) => (
             <Card key={idx} className={`relative flex flex-col ${plan.popular ? 'border-primary ring-2 ring-primary/20 shadow-xl scale-105 z-10' : 'border-gray-100 shadow-sm translate-y-2'} transition-all duration-300`}>
               {plan.popular && (
@@ -128,24 +142,25 @@ export const PricingSection = () => {
                 <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
                   <TableHead className="w-[300px] py-6 pl-8 font-bold text-gray-900">Feature</TableHead>
                   <TableHead className="text-center font-bold text-gray-900">Starter</TableHead>
+                  <TableHead className="text-center font-bold text-gray-900">Professional</TableHead>
                   <TableHead className="text-center font-bold text-gray-900">Growth</TableHead>
-                  <TableHead className="text-center font-bold text-gray-900">Agency</TableHead>
+                  <TableHead className="text-center font-bold text-gray-900">Custom</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {[
-                  { name: "Facebook Pages", values: ["1", "5", "Unlimited"] },
-                  { name: "Monthly Leads", values: ["500", "Unlimited", "Unlimited"] },
-                  { name: "Team Members", values: ["2", "10", "Unlimited"] },
-                  { name: "Pipeline Board", values: [true, true, true] },
-                  { name: "Lead Detail & Remarks", values: [true, true, true] },
-                  { name: "Tasks & Follow-ups", values: [true, true, true] },
-                  { name: "Analytics Dashboard", values: ["Basic", "Full", "Full"] },
-                  { name: "Campaign ROI Tracking", values: [false, true, true] },
-                  { name: "Closer Leaderboard", values: [false, true, true] },
-                  { name: "Activity Log", values: [false, true, true] },
-                  { name: "Onboarding Call", values: [false, false, true] },
-                  { name: "Support", values: ["Email", "Priority Email", "WhatsApp"] }
+                  { name: "Meta Pages", values: ["1", "3", "10", "Unlimited"] },
+                  { name: "Google Ads", values: [false, true, true, true] },
+                  { name: "Monthly Leads", values: ["500", "2,000", "Unlimited", "Unlimited"] },
+                  { name: "Team Members", values: ["2", "5", "15", "Unlimited"] },
+                  { name: "Custom Pipeline Stages", values: [false, true, true, true] },
+                  { name: "Call Log Tracker", values: [false, true, true, true] },
+                  { name: "Campaign ROI Tracking", values: [false, true, true, true] },
+                  { name: "Closer Leaderboard", values: [false, true, true, true] },
+                  { name: "Manager Roles", values: [false, true, true, true] },
+                  { name: "Onboarding Call", values: [false, false, true, true] },
+                  { name: "API & White Label", values: [false, false, false, true] },
+                  { name: "Support", values: ["Email", "Priority", "WhatsApp", "Hotline"] }
                 ].map((row, idx) => (
                   <TableRow key={idx} className="hover:bg-gray-50/30">
                     <TableCell className="py-4 pl-8 font-semibold text-gray-700">{row.name}</TableCell>

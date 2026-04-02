@@ -11,15 +11,15 @@ export const HeroSection = () => {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
           </span>
-          Meta Leads CRM Built for Closers
+          Meta & Google Leads CRM Built for Closers
         </div>
         
         <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900 mb-6 max-w-4xl mx-auto leading-tight">
-          Turn every Facebook & Instagram lead into a closed deal — <span className="text-blue-600">automatically.</span>
+          Capture every Facebook, Instagram & Google lead into a closed deal — <span className="text-blue-600">automatically.</span>
         </h1>
         
         <p className="text-lg md:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-          Scalezix captures every lead the moment they submit your Meta form. Sync, assign, track, and close — all in one workspace built for speed.
+          SCALEZIX captures every lead the moment they submit your Meta or Google form. Sync, assign, track, and close — all in one workspace built for speed.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
@@ -41,7 +41,7 @@ export const HeroSection = () => {
             <CheckCircle className="h-5 w-5 text-green-500" /> Zero leads missed
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-500" /> 100% Meta synced
+            <CheckCircle className="h-5 w-5 text-green-500" /> Meta & Google synced
           </div>
         </div>
       </div>

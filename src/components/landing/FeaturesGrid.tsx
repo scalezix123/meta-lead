@@ -4,49 +4,39 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 export const FeaturesGrid = () => {
   const features = [
     {
-      title: "Instant Meta Sync",
-      description: "Leads from all your Facebook pages and lead gen forms sync automatically in real time. No CSV uploads, no manual copy-paste.",
-      icon: <Zap className="h-6 w-6 text-yellow-500" />
+      title: "Google Leads (New)",
+      description: "Capture leads directly from Google Search ads and YouTube. Webhook integration ensures leads from Google Ads sync instantly.",
+      icon: <Zap className="h-6 w-6 text-red-500" />
     },
     {
-      title: "Analytics Dashboard",
-      description: "Live stats showing Total Leads, Leads Today, Team Members, and Total Won deals. Includes a 7-day lead volume area chart.",
+      title: "WhatsApp Lead Alerts",
+      description: "Get instant WhatsApp notifications the moment a new lead arrives. Real-time follow-up reminders directly to your phone.",
+      icon: <MessageSquare className="h-6 w-6 text-emerald-500" />
+    },
+    {
+      title: "Campaign ROI Tracker",
+      description: "Track which Meta & Google campaigns are producing the most 'Won' deals. Optimize your ad spend based on real closing data.",
       icon: <BarChart3 className="h-6 w-6 text-blue-500" />
     },
     {
+      title: "Manual & Other Sources",
+      description: "Log walk-ins, phone inquiries, and referral leads manually. Support for website forms via webhook URLs included.",
+      icon: <Contact className="h-6 w-6 text-purple-700" />
+    },
+    {
+      title: "Instant Meta Sync",
+      description: "Leads from all your Facebook pages and lead gen forms sync automatically in real time. No CSV uploads, no manual sync required.",
+      icon: <Zap className="h-6 w-6 text-yellow-500" />
+    },
+    {
       title: "Drag & Drop Pipeline",
-      description: "Kanban-style board with 5 stages: New → Contacted → Qualified → Won → Lost. Drag any lead between stages instantly.",
+      description: "Kanban-style board with custom stages. Drag any lead between stages instantly to manage your sales funnel.",
       icon: <Layout className="h-6 w-6 text-purple-500" />
     },
     {
-      title: "Team Management",
-      description: "Invite team members by email, assign specific leads to specific closers, set roles, and manage your workspace.",
-      icon: <Users className="h-6 w-6 text-green-500" />
-    },
-    {
-      title: "Tasks & Follow-ups",
-      description: "Create tasks tied to individual leads with due dates, priority levels, and completion tracking. Never miss a follow-up.",
-      icon: <Calendar className="h-6 w-6 text-orange-500" />
-    },
-    {
-      title: "Facebook Integration",
-      description: "Connect multiple Facebook pages using your Meta App ID and App Secret. Configure field mapping easily.",
-      icon: <Link className="h-6 w-6 text-indigo-500" />
-    },
-    {
-      title: "Lead Activity Log",
-      description: "Full lead profile showing source, campaign, form fields, and a complete activity timeline logged chronologically.",
-      icon: <Contact className="h-6 w-6 text-cyan-500" />
-    },
-    {
-      title: "Closer Leaderboard",
-      description: "Real-time ranking of your team members by won deals. Creates healthy competition and makes top performers visible.",
+      title: "Team Leaderboard",
+      description: "Real-time ranking of your closers by won deals. Create healthy competition and reward your top performers.",
       icon: <Trophy className="h-6 w-6 text-amber-500" />
-    },
-    {
-      title: "WhatsApp Quick-Dial",
-      description: "One-click WhatsApp and call buttons on every lead card. Reach prospects instantly without switching apps.",
-      icon: <MessageSquare className="h-6 w-6 text-emerald-500" />
     }
   ];
 
@@ -58,7 +48,7 @@ export const FeaturesGrid = () => {
             Scalezix is built for speed
           </h2>
           <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-            Everything you need to capture, assign, and close Meta leads in one workspace.
+          Everything you need to capture, assign, and close Meta & Google leads in one workspace.
           </p>
         </div>
 
