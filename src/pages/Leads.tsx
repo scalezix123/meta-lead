@@ -330,9 +330,10 @@ export default function Leads() {
                 <TableRow className="bg-muted/30">
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden md:table-cell">Phone</TableHead>
-                  <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
                   <TableHead className="hidden md:table-cell">Score</TableHead>
                   <TableHead className="hidden lg:table-cell">Speed</TableHead>
+                  <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
+                  <TableHead className="hidden md:table-cell">Tags</TableHead>
                   <TableHead className="hidden md:table-cell">TL</TableHead>
                   <TableHead className="hidden md:table-cell">Remark</TableHead>
                   <TableHead>Status</TableHead>
@@ -394,7 +395,7 @@ export default function Leads() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
+                      <TableCell className="hidden md:table-cell" onClick={() => navigate(`/leads/${lead.id}`)}>
                         <div className="flex flex-wrap gap-1 max-w-[150px]">
                           {(lead.tags || []).map((tag: string) => (
                             <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/5 text-primary border-primary/20 capitalize whitespace-nowrap">
