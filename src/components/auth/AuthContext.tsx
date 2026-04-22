@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 
@@ -30,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
   const fetchProfile = async (userId: string) => {
     // 1. Try to fetch existing profile
@@ -46,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // 3. Self-healing: Create a workspace if missing
-    console.log("Profile or Workspace missing, self-healing started...");
+    console.log("Self-healing: Profile or Workspace missing, creating default...");
     
     // Create a default workspace
     const { data: wsData, error: wsError } = await supabase
@@ -57,9 +58,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .select()
       .single();
-
+    
     if (wsError) {
-      console.error("Self-healing: Failed to create workspace", wsError);
+      console.error("Self-healing: Workspace creation failed.", {
+        message: wsError.message,
+        code: wsError.code,
+        details: wsError.details,
+        hint: wsError.hint
+      });
       return;
     }
 
@@ -76,47 +82,98 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .single();
 
     if (upsertError) {
-      console.error("Self-healing: Failed to update profile", upsertError);
+      console.error("Self-healing: Profile update failed.", upsertError);
     } else {
+      console.log("Self-healing: Successfully initialized workspace and profile.");
       setProfile(newProfile);
     }
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        await fetchProfile(currentUser.id);
+    const initializeAuth = async () => {
+      if (initialized.current) return;
+      initialized.current = true;
+
+      // Safety timeout: Don't let the app hang forever if Supabase is stuck
+      const timeoutId = setTimeout(() => {
+        if (loading) {
+          console.warn("AuthContext: Initialization timed out. Forcing load completion.");
+          setLoading(false);
+        }
+      }, 5000);
+
+
+      try {
+        console.log("AuthContext: Starting initialization...");
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) throw sessionError;
+
+        setSession(session);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
+        }
+      } catch (error) {
+        console.error("AuthContext: Initialization error:", error);
+      } finally {
+        clearTimeout(timeoutId);
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    };
+
+    initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
+      
       if (currentUser) {
-        await fetchProfile(currentUser.id);
+        fetchProfile(currentUser.id).catch(err => 
+          console.error("AuthContext: Background profile fetch error:", err)
+        );
       } else {
         setProfile(null);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("AuthContext: SignOut error:", error);
+    } finally {
+      // Force clear all local state to escape "stuck" sessions
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      localStorage.removeItem('sb-iijukoizlrztgxozieav-auth-token');
+      window.location.href = '/login';
+    }
   };
+
 
   return (
     <AuthContext.Provider value={{ session, user, profile, loading, signOut }}>
-      {!loading && children}
+      {loading ? (
+        <div className="flex h-screen w-screen items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            <p className="text-sm font-medium animate-pulse">Initializing SCALEZIX...</p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
+
 };
 
 export const useAuth = () => useContext(AuthContext);
