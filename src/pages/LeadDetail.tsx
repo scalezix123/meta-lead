@@ -465,19 +465,39 @@ export default function LeadDetail() {
                   <MessageSquare className="h-4 w-4 text-primary" />
                   <h2 className="text-sm font-semibold text-card-foreground">Remark</h2>
                 </div>
-                <Button size="icon" variant="ghost" className="h-6 w-6 text-primary hover:bg-primary/10" onClick={() => {
-                  const remark = prompt("Add/Edit remark:", lead.remark || "");
-                  if (remark !== null) updateLead.mutate({ remark });
-                }}>
-                  <Plus className="h-3 w-3" />
-                </Button>
               </div>
-              <div className="text-sm text-card-foreground p-3 bg-muted/30 rounded-lg">
-                {lead.remark ? (
-                  <p className="whitespace-pre-wrap">{lead.remark}</p>
-                ) : (
-                  <p className="text-muted-foreground italic text-xs">No remark added yet.</p>
-                )}
+
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Select 
+                    onValueChange={(val) => {
+                      updateLead.mutate({ remark: val });
+                    }}
+                  >
+                    <SelectTrigger className="flex-1 h-8 text-xs">
+                      <SelectValue placeholder="Select preset..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6'].map(r => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" className="h-8 text-xs whitespace-nowrap" onClick={() => {
+                    const remark = prompt("Add/Edit custom remark:", lead.remark || "");
+                    if (remark !== null) updateLead.mutate({ remark });
+                  }}>
+                    Custom
+                  </Button>
+                </div>
+
+                <div className="text-sm text-card-foreground p-3 bg-muted/30 rounded-lg">
+                  {lead.remark ? (
+                    <p className="whitespace-pre-wrap">{lead.remark}</p>
+                  ) : (
+                    <p className="text-muted-foreground italic text-xs">No remark added yet.</p>
+                  )}
+                </div>
               </div>
             </div>
 

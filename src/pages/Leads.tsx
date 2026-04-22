@@ -150,9 +150,9 @@ export default function Leads() {
     }
   });
 
-  const handleAddRemark = (e: React.MouseEvent, lead: any) => {
-    e.stopPropagation();
-    const remark = prompt("Add/Edit remark:", lead.remark || "");
+  const handleAddRemark = (e: React.MouseEvent | null, lead: any) => {
+    if (e) e.stopPropagation();
+    const remark = prompt("Add/Edit custom remark:", lead.remark || "");
     if (remark !== null) {
       updateLead.mutate({ id: lead.id, updates: { remark } });
     }
@@ -422,9 +422,29 @@ export default function Leads() {
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={lead.remark}>
-                            {lead.remark || "No remark"}
-                          </span>
+                          <Select
+                            value={['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6'].includes(lead.remark) ? lead.remark : (lead.remark ? "custom" : "none")}
+                            onValueChange={(val) => {
+                              if (val === "custom") {
+                                handleAddRemark(null, lead);
+                              } else if (val !== "none") {
+                                updateLead.mutate({ id: lead.id, updates: { remark: val } });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 border-none p-0 bg-transparent text-xs w-[130px] focus:ring-0">
+                              <div className="truncate max-w-[110px] text-muted-foreground text-left" title={lead.remark}>
+                                {lead.remark || "No remark"}
+                              </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none" className="text-muted-foreground italic">No remark</SelectItem>
+                              {['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6'].map(r => (
+                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                              ))}
+                              <SelectItem value="custom" className="font-bold text-primary">+ Custom Remark</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <Button variant="ghost" size="icon" className="h-6 w-6 text-primary hover:bg-primary/10 shrink-0" onClick={(e) => handleAddRemark(e, lead)}>
                             <Plus className="h-3 w-3" />
                           </Button>
