@@ -333,8 +333,8 @@ export default function Leads() {
                   <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
                   <TableHead className="hidden md:table-cell">Score</TableHead>
                   <TableHead className="hidden lg:table-cell">Speed</TableHead>
-                  <TableHead>TL</TableHead>
-                  <TableHead>Remark</TableHead>
+                  <TableHead className="hidden md:table-cell">TL</TableHead>
+                  <TableHead className="hidden md:table-cell">Remark</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -404,7 +404,7 @@ export default function Leads() {
                           {(!lead.tags || lead.tags.length === 0) && <span className="text-[10px] text-muted-foreground italic">No tags</span>}
                         </div>
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         <Select 
                           value={lead.assigned_to || "unassigned"} 
                           onValueChange={(val) => updateLead.mutate({ id: lead.id, updates: { assigned_to: val === "unassigned" ? null : val } })}
@@ -420,7 +420,7 @@ export default function Leads() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <Select
                             value={['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6'].includes(lead.remark) ? lead.remark : (lead.remark ? "custom" : "none")}
