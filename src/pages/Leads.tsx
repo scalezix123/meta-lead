@@ -328,7 +328,7 @@ export default function Leads() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
-                  <TableHead>Name</TableHead>
+                  <TableHead className="w-[140px] sm:w-auto">Name</TableHead>
                   <TableHead className="hidden md:table-cell">Phone</TableHead>
                   <TableHead className="hidden md:table-cell">Score</TableHead>
                   <TableHead className="hidden lg:table-cell">Speed</TableHead>
@@ -354,10 +354,10 @@ export default function Leads() {
                       key={lead.id}
                       className="cursor-pointer hover:bg-muted/50 group"
                     >
-                      <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
-                        <div>
-                          <p className="font-semibold text-card-foreground group-hover:text-primary transition-colors">{lead.full_name || 'No Name'}</p>
-                          <p className="text-[10px] text-muted-foreground uppercase">{lead.email || 'No email'}</p>
+                      <TableCell className="max-w-[140px] sm:max-w-none" onClick={() => navigate(`/leads/${lead.id}`)}>
+                        <div className="truncate">
+                          <p className="font-semibold text-card-foreground group-hover:text-primary transition-colors truncate">{lead.full_name || 'No Name'}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase truncate">{lead.email || 'No email'}</p>
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground" onClick={() => navigate(`/leads/${lead.id}`)}>
