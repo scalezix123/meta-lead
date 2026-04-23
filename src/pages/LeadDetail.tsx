@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -43,6 +44,8 @@ export default function LeadDetail() {
   const [taskTitle, setTaskTitle] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [customRemarkOpen, setCustomRemarkOpen] = useState(false);
+  const [customRemarkText, setCustomRemarkText] = useState("");
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
@@ -484,8 +487,8 @@ export default function LeadDetail() {
                     </SelectContent>
                   </Select>
                   <Button size="sm" variant="outline" className="h-8 text-xs whitespace-nowrap" onClick={() => {
-                    const remark = prompt("Add/Edit custom remark:", lead.remark || "");
-                    if (remark !== null) updateLead.mutate({ remark });
+                    setCustomRemarkText(lead.remark || "");
+                    setCustomRemarkOpen(true);
                   }}>
                     Custom
                   </Button>
@@ -601,6 +604,35 @@ export default function LeadDetail() {
           </div>
         </div>
       </div>
+
+      <Dialog open={customRemarkOpen} onOpenChange={setCustomRemarkOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add/Edit Custom Remark</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              value={customRemarkText} 
+              onChange={(e) => setCustomRemarkText(e.target.value)} 
+              placeholder="Enter your custom remark..."
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  updateLead.mutate({ remark: customRemarkText });
+                  setCustomRemarkOpen(false);
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomRemarkOpen(false)}>Cancel</Button>
+            <Button onClick={() => {
+              updateLead.mutate({ remark: customRemarkText });
+              setCustomRemarkOpen(false);
+            }}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

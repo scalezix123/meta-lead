@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { LeadStatusBadge, stageLabels } from "@/components/LeadStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { CreateLeadDialog } from "@/components/CreateLeadDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,6 +36,8 @@ export default function Leads() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [isSyncingMeta, setIsSyncingMeta] = useState(false);
+  const [customRemarkLead, setCustomRemarkLead] = useState<any>(null);
+  const [customRemarkText, setCustomRemarkText] = useState("");
   const navigate = useNavigate();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -152,10 +155,8 @@ export default function Leads() {
 
   const handleAddRemark = (e: React.MouseEvent | null, lead: any) => {
     if (e) e.stopPropagation();
-    const remark = prompt("Add/Edit custom remark:", lead.remark || "");
-    if (remark !== null) {
-      updateLead.mutate({ id: lead.id, updates: { remark } });
-    }
+    setCustomRemarkText(lead.remark || "");
+    setCustomRemarkLead(lead);
   };
 
   const { data: leads = [], isLoading: leadsLoading } = useQuery({
@@ -335,7 +336,7 @@ export default function Leads() {
                   <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
                   <TableHead className="hidden md:table-cell">Tags</TableHead>
                   <TableHead className="hidden md:table-cell">TL</TableHead>
-                  <TableHead className="hidden md:table-cell">Remark</TableHead>
+                  <TableHead>Remark</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -421,7 +422,7 @@ export default function Leads() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <Select
                             value={['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6'].includes(lead.remark) ? lead.remark : (lead.remark ? "custom" : "none")}
@@ -478,6 +479,37 @@ export default function Leads() {
           )}
         </div>
       </div>
+
+      <Dialog open={!!customRemarkLead} onOpenChange={(open) => !open && setCustomRemarkLead(null)}>
+        <DialogContent onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Add/Edit Custom Remark</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              value={customRemarkText} 
+              onChange={(e) => setCustomRemarkText(e.target.value)} 
+              placeholder="Enter your custom remark..."
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  updateLead.mutate({ id: customRemarkLead.id, updates: { remark: customRemarkText } });
+                  setCustomRemarkLead(null);
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomRemarkLead(null)}>Cancel</Button>
+            <Button onClick={() => {
+              if (customRemarkLead) {
+                updateLead.mutate({ id: customRemarkLead.id, updates: { remark: customRemarkText } });
+                setCustomRemarkLead(null);
+              }
+            }}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
