@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const getSpeedLabel = (createdAt: string, status: string) => {
-  if (status !== 'new') return null;
   const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60));
   if (mins < 60) return { label: `${mins}m`, hot: mins < 30 };
   const hrs = Math.floor(mins / 60);
@@ -352,7 +351,9 @@ export default function Leads() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
+                  <TableHead>Speed</TableHead>
                   <TableHead className="w-[140px]">Name</TableHead>
+                  <TableHead>Real Name</TableHead>
                   <TableHead className="hidden md:table-cell">TL</TableHead>
                   <TableHead className="hidden md:table-cell">Custom Info</TableHead>
                   <TableHead className="hidden lg:table-cell">Calling Date</TableHead>
@@ -360,7 +361,7 @@ export default function Leads() {
                   <TableHead>Next Follow-up</TableHead>
                   <TableHead>Outcome</TableHead>
                   <TableHead>Vehicle</TableHead>
-                  <TableHead>Last Action</TableHead>
+                  <TableHead>WhatsApp</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Created</TableHead>
                 </TableRow>
@@ -378,6 +379,27 @@ export default function Leads() {
                       key={lead.id}
                       className="cursor-pointer hover:bg-muted/50 group"
                     >
+                      <TableCell>
+                        {(() => {
+                          const speed = getSpeedLabel(lead.created_at, lead.status);
+                          if (!speed) return null;
+                          return (
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "text-[10px] px-1 h-5 font-bold",
+                                speed.hot ? "bg-red-500/10 text-red-600 border-red-500/20 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.2)]" : 
+                                speed.warn ? "bg-orange-500/10 text-orange-600 border-orange-500/20" : 
+                                "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                              )}
+                            >
+                              <Clock className="h-2 w-2 mr-1" />
+                              {speed.label}
+                            </Badge>
+                          );
+                        })()}
+                      </TableCell>
+
                       <TableCell className="max-w-[140px]" onClick={() => navigate(`/leads/${lead.id}`)}>
                         <div className="flex flex-col">
                           <p className="font-semibold text-card-foreground group-hover:text-primary transition-colors truncate">{lead.full_name || 'No Name'}</p>
@@ -393,6 +415,15 @@ export default function Leads() {
                             )}
                           </div>
                         </div>
+                      </TableCell>
+
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Input 
+                          value={lead.real_name || ""} 
+                          onChange={(e) => updateLead.mutate({ id: lead.id, updates: { real_name: e.target.value } })}
+                          className="h-7 text-[10px] w-28 bg-transparent border-muted/20"
+                          placeholder="Type real name..."
+                        />
                       </TableCell>
 
                       <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
@@ -522,12 +553,15 @@ export default function Leads() {
                       </TableCell>
 
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Input 
-                          value={lead.last_action || ""} 
-                          onChange={(e) => updateLead.mutate({ id: lead.id, updates: { last_action: e.target.value } })}
-                          className="h-7 text-[10px] w-32 bg-transparent border-muted/20"
-                          placeholder="What's next?..."
-                        />
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 border-green-500/20 hover:bg-green-500/10 text-green-600"
+                            onClick={() => openWhatsApp(lead.phone)}
+                            disabled={!lead.phone}
+                        >
+                            <MessageCircle className="h-4 w-4" />
+                        </Button>
                       </TableCell>
 
                       <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
