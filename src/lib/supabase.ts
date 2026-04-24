@@ -11,7 +11,7 @@ export const supabase = createClient(supabaseUrl || 'https://placeholder.supabas
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false, // Prevents duplicate initialization from URL fragments
     storageKey: 'sb-iijukoizlrztgxozieav-auth-token',
     storage: window.localStorage,
     flowType: 'pkce',
@@ -19,6 +19,9 @@ export const supabase = createClient(supabaseUrl || 'https://placeholder.supabas
   global: {
     headers: { 'x-application-name': 'scalezix-crm' },
   },
+  db: {
+    schema: 'public'
+  }
 });
 
 

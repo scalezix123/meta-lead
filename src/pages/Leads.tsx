@@ -42,6 +42,7 @@ export default function Leads() {
   const [followUpFilter, setFollowUpFilter] = useState<string>("");
   const [isSyncingMeta, setIsSyncingMeta] = useState(false);
   const [customRemarkText, setCustomRemarkText] = useState("");
+  const [customRemarkLead, setCustomRemarkLead] = useState<any>(null);
   const [customTLLead, setCustomTLLead] = useState<any>(null);
   const [customTLText, setCustomTLText] = useState("");
   const navigate = useNavigate();

@@ -100,21 +100,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn("AuthContext: Initialization timed out. Forcing load completion.");
           setLoading(false);
         }
-      }, 5000);
+      }, 10000); // Increased to 10s for slow networks
 
 
       try {
         console.log("AuthContext: Starting initialization...");
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          if (sessionError.message.includes('Lock')) {
+            console.warn("AuthContext: Lock conflict detected, retrying in 1s...");
+            setTimeout(() => { initialized.current = false; initializeAuth(); }, 1000);
+            return;
+          }
+          throw sessionError;
+        }
 
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         
         if (currentUser) {
-          await fetchProfile(currentUser.id);
+          await fetchProfile(currentUser.id).catch(e => console.error("Initial profile fetch failed:", e));
         }
       } catch (error) {
         console.error("AuthContext: Initialization error:", error);
