@@ -3,7 +3,11 @@ import { AppLayout } from "@/components/AppLayout";
 import { LeadStatusBadge } from "@/components/LeadStatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Phone, Mail, Calendar, User, MessageSquare, ClipboardList, Loader2, Plus, Trash2, MessageCircle, History, Clock, TrendingUp } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Calendar as CalendarIcon, User, MessageSquare, ClipboardList, Loader2, Plus, Trash2, MessageCircle, History, Clock, TrendingUp, Target } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
@@ -46,6 +50,8 @@ export default function LeadDetail() {
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [customRemarkOpen, setCustomRemarkOpen] = useState(false);
   const [customRemarkText, setCustomRemarkText] = useState("");
+  const [customTLOpen, setCustomTLOpen] = useState(false);
+  const [customTLText, setCustomTLText] = useState("");
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
@@ -169,6 +175,10 @@ export default function LeadDetail() {
       queryClient.invalidateQueries({ queryKey: ['lead', id] });
       setTaskTitle("");
       toast.success("Task added");
+    },
+    onError: (error: any) => {
+      console.error("Task creation failed:", error);
+      toast.error(`Failed to add task: ${error.message || "Unknown error"}`);
     }
   });
 
@@ -183,6 +193,10 @@ export default function LeadDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead', id] });
       toast.success("Task deleted");
+    },
+    onError: (error: any) => {
+      console.error("Task deletion failed:", error);
+      toast.error(`Failed to delete task: ${error.message || "Unknown error"}`);
     }
   });
 
@@ -198,6 +212,10 @@ export default function LeadDetail() {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       toast.success("Lead deleted");
       navigate('/leads');
+    },
+    onError: (error: any) => {
+      console.error("Lead deletion failed:", error);
+      toast.error(`Failed to delete lead: ${error.message || "Unknown error"}`);
     }
   });
 
@@ -349,25 +367,33 @@ export default function LeadDetail() {
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase font-semibold">Assignee</p>
                       <Select 
-                        value={lead.assigned_to || ""} 
+                        value={lead.assigned_to || (lead.custom_tl ? "custom" : "unassigned")} 
                         onValueChange={(val) => {
-                          const isUnassigned = val === "unassigned";
-                          updateLead.mutate({ assigned_to: isUnassigned ? null : val });
-                          const membersName = members.find(m => m.id === val)?.full_name || 'Unassigned';
-                          logActivity.mutate({ 
-                            type: 'assignment', 
-                            content: `Lead assigned to ${membersName}` 
-                          });
+                          if (val === "custom") {
+                            setCustomTLText(lead.custom_tl || "");
+                            setCustomTLOpen(true);
+                          } else {
+                            const isUnassigned = val === "unassigned";
+                            updateLead.mutate({ assigned_to: isUnassigned ? null : val, custom_tl: null });
+                            const membersName = members.find(m => m.id === val)?.full_name || 'Unassigned';
+                            logActivity.mutate({ 
+                              type: 'assignment', 
+                              content: `Lead assigned to ${membersName}` 
+                            });
+                          }
                         }}
                       >
                         <SelectTrigger className="h-8 border-none p-0 bg-transparent text-sm focus:ring-0">
-                          <SelectValue placeholder="Unassigned" />
+                          <SelectValue placeholder="Unassigned">
+                             {lead.assigned_to ? members.find(m => m.id === lead.assigned_to)?.full_name : (lead.custom_tl || "Unassigned")}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="unassigned">Unassigned</SelectItem>
                           {members.map(member => (
                             <SelectItem key={member.id} value={member.id}>{member.full_name}</SelectItem>
                           ))}
+                          <SelectItem value="custom" className="font-bold text-primary">+ Custom TL</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -481,9 +507,10 @@ export default function LeadDetail() {
                       <SelectValue placeholder="Select preset..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6'].map(r => (
+                      {['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6', 'Dost Twin fule'].map(r => (
                         <SelectItem key={r} value={r}>{r}</SelectItem>
                       ))}
+                      <SelectItem value="custom" className="font-bold text-primary">+ Custom</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button size="sm" variant="outline" className="h-8 text-xs whitespace-nowrap" onClick={() => {
@@ -502,6 +529,100 @@ export default function LeadDetail() {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="bg-card rounded-xl border p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-card-foreground">Lead Outcome</h2>
+              </div>
+              <Select 
+                value={lead.inquiry_outcome || ""} 
+                onValueChange={(val) => updateLead.mutate({ inquiry_outcome: val })}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder="Select outcome..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {['FAKE INQUIRY', 'INTRESTED', 'NOT INTERSTED', 'PENDING', 'WRONG NUMBER', 'OUT OF TARITORY', 'DUPLICATE INQUIRY'].map(o => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="bg-card rounded-xl border p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-card-foreground">Calling Details</h2>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold">Calling Date</label>
+                  <Input 
+                    type="date"
+                    value={lead.calling_date || ""} 
+                    onChange={(e) => updateLead.mutate({ calling_date: e.target.value })}
+                    className="h-8 text-xs mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold">Calling Remark</label>
+                  <Input 
+                    value={lead.calling_remark || ""} 
+                    onChange={(e) => updateLead.mutate({ calling_remark: e.target.value })}
+                    className="h-8 text-xs mt-1"
+                    placeholder="Enter call notes..."
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold">Last Action</label>
+                  <Input 
+                    value={lead.last_action || ""} 
+                    onChange={(e) => updateLead.mutate({ last_action: e.target.value })}
+                    className="h-8 text-xs mt-1"
+                    placeholder="Enter last action..."
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase font-bold">Custom Info</label>
+                  <Input 
+                    value={lead.custom_text_field || ""} 
+                    onChange={(e) => updateLead.mutate({ custom_text_field: e.target.value })}
+                    className="h-8 text-xs mt-1"
+                    placeholder="Additional notes..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-xl border p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <CalendarIcon className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-card-foreground">Next Follow-up</h2>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full h-9 justify-start text-left font-normal text-xs",
+                      !lead.follow_up_date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {lead.follow_up_date ? format(new Date(lead.follow_up_date), "PPP") : <span>Schedule follow-up...</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={lead.follow_up_date ? new Date(lead.follow_up_date) : undefined}
+                    onSelect={(date) => updateLead.mutate({ follow_up_date: date?.toISOString() })}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="bg-card rounded-xl border p-6">
@@ -608,13 +729,13 @@ export default function LeadDetail() {
       <Dialog open={customRemarkOpen} onOpenChange={setCustomRemarkOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add/Edit Custom Remark</DialogTitle>
+            <DialogTitle>Add/Edit Custom Vehicle/Remark</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <Input 
               value={customRemarkText} 
               onChange={(e) => setCustomRemarkText(e.target.value)} 
-              placeholder="Enter your custom remark..."
+              placeholder="Enter custom vehicle or remark..."
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -629,6 +750,35 @@ export default function LeadDetail() {
             <Button onClick={() => {
               updateLead.mutate({ remark: customRemarkText });
               setCustomRemarkOpen(false);
+            }}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={customTLOpen} onOpenChange={setCustomTLOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Custom TL</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              value={customTLText} 
+              onChange={(e) => setCustomTLText(e.target.value)} 
+              placeholder="Enter custom TL name..."
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  updateLead.mutate({ assigned_to: null, custom_tl: customTLText });
+                  setCustomTLOpen(false);
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomTLOpen(false)}>Cancel</Button>
+            <Button onClick={() => {
+              updateLead.mutate({ assigned_to: null, custom_tl: customTLText });
+              setCustomTLOpen(false);
             }}>Save</Button>
           </DialogFooter>
         </DialogContent>

@@ -126,16 +126,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("AuthContext: Auth state changed:", event);
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       
-      if (currentUser) {
+      if (currentUser && event === 'SIGNED_IN') {
         fetchProfile(currentUser.id).catch(err => 
           console.error("AuthContext: Background profile fetch error:", err)
         );
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setProfile(null);
       }
     });

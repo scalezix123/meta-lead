@@ -14,7 +14,11 @@ export const supabase = createClient(supabaseUrl || 'https://placeholder.supabas
     detectSessionInUrl: true,
     storageKey: 'sb-iijukoizlrztgxozieav-auth-token',
     storage: window.localStorage,
-  }
+    flowType: 'pkce',
+  },
+  global: {
+    headers: { 'x-application-name': 'scalezix-crm' },
+  },
 });
 
 

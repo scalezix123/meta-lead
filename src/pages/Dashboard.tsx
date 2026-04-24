@@ -1,4 +1,5 @@
-import { Target, TrendingUp, Loader2, BarChart3, Trophy, PieChart, Zap } from "lucide-react";
+import { Target, TrendingUp, Loader2, BarChart3, Trophy, PieChart, Zap, Calendar as CalendarIcon, Bell } from "lucide-react";
+import { toast } from "sonner";
 import { StatCard } from "@/components/StatCard";
 import { LeadStatusBadge } from "@/components/LeadStatusBadge";
 import { AppLayout } from "@/components/AppLayout";
@@ -98,12 +99,22 @@ export default function Dashboard() {
 
   const today = new Date().toISOString().split('T')[0];
   const todayLeads = leads.filter(l => l.created_at.startsWith(today));
+  const todayFollowUps = leads.filter(l => l.follow_up_date && l.follow_up_date.startsWith(today));
   const recentLeads = leads.slice(0, 5);
 
+  useEffect(() => {
+    if (todayFollowUps.length > 0) {
+      toast.info(`You have ${todayFollowUps.length} follow-ups scheduled for today!`, {
+        icon: <Bell className="h-4 w-4" />,
+        duration: 5000,
+      });
+    }
+  }, [todayFollowUps.length]);
+
   // Financial Calculations
-  const totalPipelineValue = leads.reduce((acc, lead) => acc + (lead.lead_value || 0), 0);
-  const wonRevenue = leads.filter(l => l.status === 'won').reduce((acc, lead) => acc + (lead.lead_value || 0), 0);
-  const totalAdSpend = campaigns.reduce((acc, camp) => acc + (camp.ad_spend || 0), 0);
+  const totalPipelineValue = leads.reduce((acc, lead) => acc + (Number(lead.lead_value) || 0), 0);
+  const wonRevenue = leads.filter(l => l.status === 'won').reduce((acc, lead) => acc + (Number(lead.lead_value) || 0), 0);
+  const totalAdSpend = campaigns.reduce((acc, camp) => acc + (Number(camp.ad_spend) || 0), 0);
   const roas = totalAdSpend > 0 ? (wonRevenue / totalAdSpend).toFixed(2) : "0.00";
 
   // Conversion Funnel
@@ -182,6 +193,17 @@ export default function Dashboard() {
             <div>
               <p className="text-sm font-bold text-red-700">⚠️ {slowLeads.length} leads are waiting over 4 hours without contact!</p>
               <p className="text-xs text-red-500 mt-0.5">Leads contacted within 5 mins are 9x more likely to convert. Assign them now!</p>
+            </div>
+          </div>
+        )}
+
+        {/* Today's Follow-ups Banner */}
+        {todayFollowUps.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+            <CalendarIcon className="h-5 w-5 text-blue-500 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-blue-700">📅 {todayFollowUps.length} follow-ups scheduled for today!</p>
+              <p className="text-xs text-blue-500 mt-0.5">Don't forget to call your scheduled leads to keep the pipeline moving.</p>
             </div>
           </div>
         )}
@@ -270,7 +292,23 @@ export default function Dashboard() {
         </div>
 
         {/* Bottom Lists Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="bg-card rounded-2xl border p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-card-foreground mb-4">Today's Follow-ups</h2>
+            <div className="space-y-3">
+              {todayFollowUps.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic py-4">No follow-ups for today.</p>
+              ) : todayFollowUps.map(lead => (
+                <div key={lead.id} className="flex justify-between items-center bg-blue-50/30 p-3 rounded-lg border border-blue-100">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate">{lead.full_name || 'No Name'}</p>
+                    <p className="text-[10px] text-muted-foreground">{lead.phone}</p>
+                  </div>
+                  <LeadStatusBadge status={lead.status} />
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="bg-card rounded-2xl border p-5 shadow-sm">
             <h2 className="text-base font-semibold text-card-foreground mb-4">Campaign ROI</h2>
             <div className="space-y-3">

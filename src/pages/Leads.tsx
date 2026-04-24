@@ -7,7 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Loader2, Download, MessageCircle, RefreshCcw, LayoutGrid, ShieldAlert, Clock } from "lucide-react";
+import { Plus, Search, Loader2, Download, MessageCircle, RefreshCcw, LayoutGrid, ShieldAlert, Clock, Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -35,9 +39,11 @@ export default function Leads() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [followUpFilter, setFollowUpFilter] = useState<string>("");
   const [isSyncingMeta, setIsSyncingMeta] = useState(false);
-  const [customRemarkLead, setCustomRemarkLead] = useState<any>(null);
   const [customRemarkText, setCustomRemarkText] = useState("");
+  const [customTLLead, setCustomTLLead] = useState<any>(null);
+  const [customTLText, setCustomTLText] = useState("");
   const navigate = useNavigate();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -89,13 +95,13 @@ export default function Leads() {
                                 const mapping = page.field_mapping || { full_name: 'full_name', email: 'email', phone: 'phone' };
                                 const leadsToUpsert = leadsData.data.map((lead: any) => {
                                     const getFieldValue = (name: string, fallbacks: string[] = []) => {
-                                        let val = lead.field_data.find((f: any) => f.name === name || f.name.toLowerCase() === name.toLowerCase())?.values?.[0];
+                                        let val = lead.field_data?.find((f: any) => f.name === name || f.name.toLowerCase() === name.toLowerCase())?.values?.[0];
                                         if (val) return val;
                                         for (const fb of fallbacks) {
-                                            val = lead.field_data.find((f: any) => f.name === fb || f.name.toLowerCase() === fb.toLowerCase())?.values?.[0];
+                                            val = lead.field_data?.find((f: any) => f.name === fb || f.name.toLowerCase() === fb.toLowerCase())?.values?.[0];
                                             if (val) return val;
                                         }
-                                        return "";
+                                        return null;
                                     };
                                     return {
                                         workspace_id: profile.workspace_id,
@@ -144,12 +150,19 @@ export default function Leads() {
 
   const updateLead = useMutation({
     mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
-      const { error } = await supabase.from('leads').update(updates).eq('id', id);
+      const { error } = await supabase
+        .from('leads')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       toast.success("Lead updated");
+    },
+    onError: (error: any) => {
+      console.error("Update failed:", error);
+      toast.error(`Failed to update: ${error.message || "Unknown error"}`);
     }
   });
 
@@ -196,7 +209,8 @@ export default function Leads() {
       (lead.tags || []).some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()));
     const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
     const matchesAssignee = assigneeFilter === "all" || lead.assigned_to === assigneeFilter;
-    return matchesSearch && matchesStatus && matchesAssignee;
+    const matchesFollowUp = !followUpFilter || (lead.follow_up_date && lead.follow_up_date.startsWith(followUpFilter));
+    return matchesSearch && matchesStatus && matchesAssignee && matchesFollowUp;
   });
 
   const isRotten = (createdAt: string, status: string) => {
@@ -317,6 +331,14 @@ export default function Leads() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Input
+              type="date"
+              value={followUpFilter}
+              onChange={e => setFollowUpFilter(e.target.value)}
+              className="w-[160px] h-10"
+              placeholder="Follow-up Date"
+            />
           </div>
         </div>
 
@@ -329,23 +351,23 @@ export default function Leads() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
-                  <TableHead className="w-[140px] sm:w-auto">Name</TableHead>
-                  <TableHead className="hidden md:table-cell">Phone</TableHead>
-                  <TableHead className="hidden md:table-cell">Score</TableHead>
-                  <TableHead className="hidden lg:table-cell">Speed</TableHead>
-                  <TableHead className="hidden lg:table-cell">Source / Page</TableHead>
-                  <TableHead className="hidden md:table-cell">Tags</TableHead>
+                  <TableHead className="w-[140px]">Name</TableHead>
                   <TableHead className="hidden md:table-cell">TL</TableHead>
-                  <TableHead>Remark</TableHead>
+                  <TableHead className="hidden md:table-cell">Custom Info</TableHead>
+                  <TableHead className="hidden lg:table-cell">Calling Date</TableHead>
+                  <TableHead className="hidden lg:table-cell">Calling Remark</TableHead>
+                  <TableHead>Next Follow-up</TableHead>
+                  <TableHead>Outcome</TableHead>
+                  <TableHead>Vehicle</TableHead>
+                  <TableHead>Last Action</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="hidden lg:table-cell">Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-muted-foreground italic">
+                    <TableCell colSpan={11} className="text-center py-12 text-muted-foreground italic">
                       No leads found matching your criteria.
                     </TableCell>
                   </TableRow>
@@ -355,77 +377,125 @@ export default function Leads() {
                       key={lead.id}
                       className="cursor-pointer hover:bg-muted/50 group"
                     >
-                      <TableCell className="max-w-[140px] sm:max-w-none" onClick={() => navigate(`/leads/${lead.id}`)}>
-                        <div className="truncate">
-                          <p className="font-semibold text-card-foreground group-hover:text-primary transition-colors truncate">{lead.full_name || 'No Name'}</p>
-                          <p className="text-[10px] text-muted-foreground uppercase truncate">{lead.email || 'No email'}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground" onClick={() => navigate(`/leads/${lead.id}`)}>
-                        {lead.phone || '—'}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell" onClick={() => navigate(`/leads/${lead.id}`)}>
-                        {lead.lead_score !== undefined && lead.lead_score !== null ? (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getScoreColor(lead.lead_score)}`}>
-                            {lead.lead_score}
-                          </span>
-                        ) : <span className="text-muted-foreground text-xs">—</span>}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell" onClick={() => navigate(`/leads/${lead.id}`)}>
-                        {(() => {
-                          const speed = getSpeedLabel(lead.created_at, lead.status);
-                          if (!speed) return <span className="text-muted-foreground text-xs">—</span>;
-                          return (
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                              speed.hot ? 'bg-green-500/10 text-green-700 border-green-500/20' :
-                              speed.warn ? 'bg-red-500/10 text-red-700 border-red-500/20' :
-                              'bg-muted text-muted-foreground border-muted-foreground/20'
-                            }`}>
-                              <Clock className="h-2.5 w-2.5" />{speed.label}
-                            </span>
-                          );
-                        })()}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs" onClick={() => navigate(`/leads/${lead.id}`)}>  
+                      <TableCell className="max-w-[140px]" onClick={() => navigate(`/leads/${lead.id}`)}>
                         <div className="flex flex-col">
-                          <span className="uppercase font-bold text-[9px] text-primary" title={lead.meta_data?.campaign_name || 'Generic Campaign'}>
-                            {lead.meta_data?.campaign_name || lead.source}
-                          </span>
-                          <span className="text-muted-foreground truncate max-w-[120px] text-[10px]" title={lead.meta_data?.page_name || 'Generic Page'}>
-                            {lead.meta_data?.page_name || 'Generic Page'}
-                          </span>
+                          <p className="font-semibold text-card-foreground group-hover:text-primary transition-colors truncate">{lead.full_name || 'No Name'}</p>
+                          <div className="flex items-center gap-1">
+                            <p className="text-[10px] text-muted-foreground truncate">{lead.phone || 'No phone'}</p>
+                            {lead.phone && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); openWhatsApp(lead.phone); }}
+                                    className="text-green-600 hover:text-green-500"
+                                >
+                                    <MessageCircle className="h-3 w-3" />
+                                </button>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell" onClick={() => navigate(`/leads/${lead.id}`)}>
-                        <div className="flex flex-wrap gap-1 max-w-[150px]">
-                          {(lead.tags || []).map((tag: string) => (
-                            <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/5 text-primary border-primary/20 capitalize whitespace-nowrap">
-                              {tag}
-                            </Badge>
-                          ))}
-                          {(!lead.tags || lead.tags.length === 0) && <span className="text-[10px] text-muted-foreground italic">No tags</span>}
-                        </div>
-                      </TableCell>
+
                       <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                        <Select 
-                          value={lead.assigned_to || "unassigned"} 
-                          onValueChange={(val) => updateLead.mutate({ id: lead.id, updates: { assigned_to: val === "unassigned" ? null : val } })}
+                        <div className="flex items-center gap-1">
+                            <Select 
+                                value={lead.assigned_to || (lead.custom_tl ? "custom" : "unassigned")} 
+                                onValueChange={(val) => {
+                                    if (val === "custom") {
+                                        setCustomTLText(lead.custom_tl || "");
+                                        setCustomTLLead(lead);
+                                    } else {
+                                        updateLead.mutate({ id: lead.id, updates: { assigned_to: val === "unassigned" ? null : val, custom_tl: null } });
+                                    }
+                                }}
+                            >
+                            <SelectTrigger className="h-8 border-none p-0 bg-transparent text-xs w-[100px] focus:ring-0">
+                                <SelectValue placeholder="Unassigned">
+                                    {lead.assigned_to ? members.find(m => m.id === lead.assigned_to)?.full_name : (lead.custom_tl || "Unassigned")}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="unassigned">Unassigned</SelectItem>
+                                {members.map(member => (
+                                <SelectItem key={member.id} value={member.id}>{member.full_name}</SelectItem>
+                                ))}
+                                <SelectItem value="custom" className="font-bold text-primary">+ Custom TL</SelectItem>
+                            </SelectContent>
+                            </Select>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                        <Input 
+                          value={lead.custom_text_field || ""} 
+                          onChange={(e) => updateLead.mutate({ id: lead.id, updates: { custom_text_field: e.target.value } })}
+                          className="h-7 text-[10px] w-24 bg-transparent border-muted/20"
+                          placeholder="Note..."
+                        />
+                      </TableCell>
+
+                      <TableCell className="hidden lg:table-cell" onClick={(e) => e.stopPropagation()}>
+                        <Input 
+                          type="date"
+                          value={lead.calling_date || ""} 
+                          onChange={(e) => updateLead.mutate({ id: lead.id, updates: { calling_date: e.target.value } })}
+                          className="h-7 text-[10px] w-28 bg-transparent border-muted/20"
+                        />
+                      </TableCell>
+
+                      <TableCell className="hidden lg:table-cell" onClick={(e) => e.stopPropagation()}>
+                        <Input 
+                          value={lead.calling_remark || ""} 
+                          onChange={(e) => updateLead.mutate({ id: lead.id, updates: { calling_remark: e.target.value } })}
+                          className="h-7 text-[10px] w-32 bg-transparent border-muted/20"
+                          placeholder="Call notes..."
+                        />
+                      </TableCell>
+
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-[130px] h-8 justify-start text-left font-normal text-[10px] px-2 border-muted/20 bg-transparent",
+                                !lead.follow_up_date && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-1 h-3 w-3" />
+                              {lead.follow_up_date ? format(new Date(lead.follow_up_date), "PPP") : <span>Set Date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={lead.follow_up_date ? new Date(lead.follow_up_date) : undefined}
+                              onSelect={(date) => updateLead.mutate({ id: lead.id, updates: { follow_up_date: date?.toISOString() } })}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableCell>
+
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Select
+                            value={lead.inquiry_outcome || "none"}
+                            onValueChange={(val) => updateLead.mutate({ id: lead.id, updates: { inquiry_outcome: val === "none" ? null : val } })}
                         >
-                          <SelectTrigger className="h-8 border-none p-0 bg-transparent text-xs w-[120px] focus:ring-0">
-                            <SelectValue placeholder="Unassigned" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {members.map(member => (
-                              <SelectItem key={member.id} value={member.id}>{member.full_name}</SelectItem>
-                            ))}
-                          </SelectContent>
+                            <SelectTrigger className="h-8 border-none p-0 bg-transparent text-[10px] w-[100px] focus:ring-0">
+                                <SelectValue placeholder="No Outcome" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none" className="text-muted-foreground italic">No Outcome</SelectItem>
+                                {['FAKE INQUIRY', 'INTRESTED', 'NOT INTERSTED', 'PENDING', 'WRONG NUMBER', 'OUT OF TARITORY', 'DUPLICATE INQUIRY'].map(o => (
+                                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                                ))}
+                            </SelectContent>
                         </Select>
                       </TableCell>
+
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <Select
-                            value={['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6'].includes(lead.remark) ? lead.remark : (lead.remark ? "custom" : "none")}
+                            value={['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6', 'Dost Twin fule'].includes(lead.remark) ? lead.remark : (lead.remark ? "custom" : "none")}
                             onValueChange={(val) => {
                               if (val === "custom") {
                                 handleAddRemark(null, lead);
@@ -434,42 +504,37 @@ export default function Leads() {
                               }
                             }}
                           >
-                            <SelectTrigger className="h-8 border-none p-0 bg-transparent text-xs w-[130px] focus:ring-0">
-                              <div className="truncate max-w-[110px] text-muted-foreground text-left" title={lead.remark}>
-                                {lead.remark || "No remark"}
+                            <SelectTrigger className="h-8 border-none p-0 bg-transparent text-[10px] w-[110px] focus:ring-0">
+                              <div className="truncate max-w-[100px] text-left" title={lead.remark}>
+                                {lead.remark || "No vehicle"}
                               </div>
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="none" className="text-muted-foreground italic">No remark</SelectItem>
-                              {['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6'].map(r => (
+                              <SelectItem value="none" className="text-muted-foreground italic">No vehicle</SelectItem>
+                              {['Bada dost i5', 'Bada dost i5+', 'Bada dost i5XL', 'Bada dost i2', 'Dost+ XL', 'Dost XL', 'saathi', 'Partner', 'Bada dost i6', 'Dost Twin fule'].map(r => (
                                 <SelectItem key={r} value={r}>{r}</SelectItem>
                               ))}
-                              <SelectItem value="custom" className="font-bold text-primary">+ Custom Remark</SelectItem>
+                              <SelectItem value="custom" className="font-bold text-primary">+ Custom</SelectItem>
                             </SelectContent>
                           </Select>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-primary hover:bg-primary/10 shrink-0" onClick={(e) => handleAddRemark(e, lead)}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
                         </div>
                       </TableCell>
+
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Input 
+                          value={lead.last_action || ""} 
+                          onChange={(e) => updateLead.mutate({ id: lead.id, updates: { last_action: e.target.value } })}
+                          className="h-7 text-[10px] w-32 bg-transparent border-muted/20"
+                          placeholder="What's next?..."
+                        />
+                      </TableCell>
+
                       <TableCell onClick={() => navigate(`/leads/${lead.id}`)}>
                         <LeadStatusBadge status={lead.status} />
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm" onClick={() => navigate(`/leads/${lead.id}`)}>
+
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-[10px]" onClick={() => navigate(`/leads/${lead.id}`)}>
                         {new Date(lead.created_at).toLocaleDateString('en-IN')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (lead.phone) openWhatsApp(lead.phone);
-                          }}
-                          className="text-green-600 hover:bg-green-500/10"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -483,13 +548,13 @@ export default function Leads() {
       <Dialog open={!!customRemarkLead} onOpenChange={(open) => !open && setCustomRemarkLead(null)}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
-            <DialogTitle>Add/Edit Custom Remark</DialogTitle>
+            <DialogTitle>Add/Edit Custom Vehicle/Remark</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <Input 
               value={customRemarkText} 
               onChange={(e) => setCustomRemarkText(e.target.value)} 
-              placeholder="Enter your custom remark..."
+              placeholder="Enter custom vehicle or remark..."
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -505,6 +570,37 @@ export default function Leads() {
               if (customRemarkLead) {
                 updateLead.mutate({ id: customRemarkLead.id, updates: { remark: customRemarkText } });
                 setCustomRemarkLead(null);
+              }
+            }}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!customTLLead} onOpenChange={(open) => !open && setCustomTLLead(null)}>
+        <DialogContent onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Assign Custom TL</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              value={customTLText} 
+              onChange={(e) => setCustomTLText(e.target.value)} 
+              placeholder="Enter custom TL name..."
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  updateLead.mutate({ id: customTLLead.id, updates: { assigned_to: null, custom_tl: customTLText } });
+                  setCustomTLLead(null);
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomTLLead(null)}>Cancel</Button>
+            <Button onClick={() => {
+              if (customTLLead) {
+                updateLead.mutate({ id: customTLLead.id, updates: { assigned_to: null, custom_tl: customTLText } });
+                setCustomTLLead(null);
               }
             }}>Save</Button>
           </DialogFooter>
